@@ -75,6 +75,9 @@ func (r *sqliteIncidentRepo) List(ctx context.Context, filter IncidentFilter) ([
 		args = append(args, filter.Limit)
 	}
 	if filter.Offset > 0 {
+		if filter.Limit <= 0 {
+			query += " LIMIT 100"
+		}
 		query += " OFFSET ?"
 		args = append(args, filter.Offset)
 	}
@@ -92,6 +95,9 @@ func (r *sqliteIncidentRepo) List(ctx context.Context, filter IncidentFilter) ([
 			return nil, fmt.Errorf("incident_repo: scan: %w", err)
 		}
 		items = append(items, inc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("incident_repo: list rows: %w", err)
 	}
 	return items, nil
 }

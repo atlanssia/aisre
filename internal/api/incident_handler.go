@@ -51,13 +51,23 @@ func (h *handler) listIncidents(w http.ResponseWriter, r *http.Request) {
 		Status:   r.URL.Query().Get("status"),
 	}
 	if limit := r.URL.Query().Get("limit"); limit != "" {
-		filter.Limit, _ = strconv.Atoi(limit)
+		v, err := strconv.Atoi(limit)
+		if err != nil || v < 0 {
+			writeError(w, http.StatusBadRequest, "invalid limit parameter", "INVALID_REQUEST")
+			return
+		}
+		filter.Limit = v
 	}
 	if filter.Limit == 0 {
 		filter.Limit = 50
 	}
 	if offset := r.URL.Query().Get("offset"); offset != "" {
-		filter.Offset, _ = strconv.Atoi(offset)
+		v, err := strconv.Atoi(offset)
+		if err != nil || v < 0 {
+			writeError(w, http.StatusBadRequest, "invalid offset parameter", "INVALID_REQUEST")
+			return
+		}
+		filter.Offset = v
 	}
 
 	items, err := h.svc.ListIncidents(r.Context(), filter)

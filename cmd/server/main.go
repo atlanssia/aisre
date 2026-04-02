@@ -39,7 +39,9 @@ func run(configPath string) error {
 	if dsn == "" {
 		dsn = "./data/aisre.db"
 	}
-	os.MkdirAll("./data", 0755)
+	if err := os.MkdirAll("./data", 0755); err != nil {
+		return fmt.Errorf("create data dir: %w", err)
+	}
 
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
