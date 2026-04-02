@@ -1,0 +1,11 @@
+DROP INDEX IF EXISTS idx_feedback_report;
+DROP INDEX IF EXISTS idx_evidence_report;
+DROP INDEX IF EXISTS idx_reports_incident;
+DROP INDEX IF EXISTS idx_incidents_severity;
+DROP INDEX IF EXISTS idx_incidents_status;
+DROP INDEX IF EXISTS idx_incidents_service;
+DROP TABLE IF EXISTS feedback;
+DROP TABLE IF EXISTS recommendations;
+DROP TABLE IF EXISTS evidence_items;
+DROP TABLE IF EXISTS rca_reports;
+DROP TABLE IF EXISTS incidents;
