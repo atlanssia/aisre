@@ -28,6 +28,19 @@ test-analysis:
 test-e2e:
 	go test ./test/e2e/...
 
+# Run golden dataset evaluation
+test-eval:
+	go test ./test/eval/...
+
+# Run benchmark against golden dataset
+eval-golden:
+	@echo "Running golden dataset benchmark..."
+	go run ./internal/eval/... || true
+
+# Compare prompt versions
+eval-compare:
+	@echo "Comparing prompt versions..."
+
 # Run linter
 lint:
 	golangci-lint run

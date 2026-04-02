@@ -1,0 +1,35 @@
+{
+  "incident_id": "golden-001",
+  "service": "payment-api",
+  "severity": "P1",
+  "description": "Payment API experiencing high error rate after deployment v2.3.1",
+  "evidence": {
+    "logs": [
+      {
+        "timestamp": "2024-01-15T10:23:45Z",
+        "level": "ERROR",
+        "service": "payment-api",
+        "message": "redis: connection pool exhausted",
+        "count": 238
+      }
+    ],
+    "traces": [
+      {
+        "trace_id": "abc-123-def",
+        "service": "payment-api",
+        "operation": "POST /api/charge",
+        "duration_ms": 4200,
+        "status": "ERROR"
+      }
+    ],
+    "metrics": [
+      {
+        "name": "error_rate",
+        "value": 0.34,
+        "baseline": 0.02,
+        "delta": "+1600%"
+      }
+    ]
+  },
+  "expected_root_cause": "redis connection pool exhausted"
+}

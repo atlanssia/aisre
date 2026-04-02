@@ -85,6 +85,8 @@ Design documents are in the `docs/` directory:
 | [Backend Design](docs/backend-design.md) | HLD/LLD, contract, TDD, sprint plan |
 | [Frontend Design](docs/frontend-design.md) | Page prototypes, components, IA, state management |
 | [OO Adapter Spec](docs/oo-adapter-spec.md) | OpenObserve SDK contract, query protocol, TDD |
+| [Prompt Engineering](docs/prompt-engineering.md) | Production PromptOps, anti-hallucination, TDD |
+| [Eval & Benchmark](docs/eval-benchmark.md) | Golden dataset, release gate, feedback loop |
 
 ## Roadmap
 
