@@ -13,27 +13,25 @@ redis:
   # addr: "localhost:6379"
 
 llm:
-  default_provider: "anthropic"
+  default_provider: "openai-compatible"
+  base_url: "https://api.openai.com/v1"
+  api_key: "${OPENAI_API_KEY}"
   models:
     summarize:
-      provider: "anthropic"
-      model: "claude-haiku-4-5-20251001"
+      model: "gpt-4o-mini"
       max_tokens: 1024
     rca:
-      provider: "anthropic"
-      model: "claude-sonnet-4-6"
+      model: "gpt-4o"
       max_tokens: 4096
     embedding:
-      provider: "openai"
       model: "text-embedding-3-small"
 
 adapters:
   openobserve:
-    enabled: false
-    # base_url: "http://localhost:5080"
-    # auth:
-    #   username: ""
-    #   password: ""
+    enabled: true
+    base_url: "http://localhost:5080"
+    org_id: "default"
+    token: "${OO_TOKEN}"
 
 log:
   level: "debug"
