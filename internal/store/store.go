@@ -48,6 +48,7 @@ type Report struct {
 	RootCause   string
 	Confidence  float64
 	ReportJSON  string
+	Status      string
 	CreatedAt   string
 }
 
@@ -66,6 +67,7 @@ type Evidence struct {
 type Feedback struct {
 	ID          int64
 	ReportID    int64
+	UserID      string
 	Rating      int
 	Comment     string
 	ActionTaken string
