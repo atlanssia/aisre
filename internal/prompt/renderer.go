@@ -2,6 +2,8 @@ package prompt
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 )
@@ -22,10 +24,35 @@ type Renderer struct {
 
 // NewRenderer creates a renderer that loads templates from the given directory.
 func NewRenderer(templateDir string) (*Renderer, error) {
-	// TODO: load templates from templateDir/templates/*.txt
-	return &Renderer{
+	r := &Renderer{
 		templates: make(map[string]*template.Template),
-	}, nil
+	}
+
+	entries, err := os.ReadDir(templateDir)
+	if err != nil {
+		return nil, fmt.Errorf("prompt: read template dir %s: %w", templateDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".txt") {
+			continue
+		}
+
+		name := strings.TrimSuffix(entry.Name(), ".txt")
+		content, err := os.ReadFile(filepath.Join(templateDir, entry.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("prompt: read template %s: %w", entry.Name(), err)
+		}
+
+		tmpl, err := template.New(name).Parse(string(content))
+		if err != nil {
+			return nil, fmt.Errorf("prompt: parse template %s: %w", entry.Name(), err)
+		}
+
+		r.templates[name] = tmpl
+	}
+
+	return r, nil
 }
 
 // Render executes a named template with the given data.
