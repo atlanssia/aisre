@@ -13,5 +13,5 @@ type Tool interface {
 	Name() string
 
 	// Execute runs the tool against the given incident context.
-	Execute(ctx context.Context, incident *contract.Incident) (*contract.ToolResult, error)
+	Execute(ctx context.Context, incident *contract.Incident) ([]contract.ToolResult, error)
 }
