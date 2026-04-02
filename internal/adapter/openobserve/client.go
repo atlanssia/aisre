@@ -1,0 +1,243 @@
+package openobserve
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"github.com/atlanssia/aisre/internal/contract"
+)
+
+// Client is the HTTP client for OpenObserve API.
+type Client struct {
+	baseURL string
+	orgID  string
+	token  string
+	http   *http.Client
+	logger *slog.Logger
+}
+
+// NewClient creates a new OO adapter client.
+func NewClient(cfg Config, logger *slog.Logger) (*Client, error) {
+	if cfg.BaseURL == "" {
+		return nil, fmt.Errorf("openobserve: baseURL is required")
+	}
+	if cfg.OrgID == "" {
+		return nil, fmt.Errorf("openobserve: orgID is required")
+	}
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &Client{
+		baseURL: cfg.BaseURL,
+		orgID:  cfg.OrgID,
+		token:  cfg.Token,
+		http:   &http.Client{Timeout: cfg.Timeout},
+		logger: logger,
+	}, nil
+}
+
+// SearchLogs queries OO logs via Search API and returns normalized results.
+func (c *Client) SearchLogs(ctx context.Context, q LogQuery) ([]contract.ToolResult, error) {
+	payload := map[string]any{
+		"query":     c.buildLogSQL(q),
+		"from":      q.StartTime,
+		"to":        q.EndTime,
+		"sql_mode":  "full",
+	}
+	if q.Limit > 0 {
+		payload["size"] = q.Limit
+	}
+
+	body, _ := json.Marshal(payload)
+	respBody, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/%s/_search", c.orgID), body)
+	if err != nil {
+		return nil, fmt.Errorf("search logs: %w", err)
+	}
+
+	var resp struct {
+		Hits []map[string]any `json:"hits"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, fmt.Errorf("parse log response: %w", err)
+	}
+
+	var results []contract.ToolResult
+	for _, hit := range resp.Hits {
+		score := scoreFromLevel(extractString(hit, "level"))
+		results = append(results, mapLogHit(hit, score))
+	}
+	return results, nil
+}
+
+// SearchTrace queries OO traces and returns normalized results.
+func (c *Client) SearchTrace(ctx context.Context, q TraceQuery) ([]contract.ToolResult, error) {
+	sql := fmt.Sprintf("SELECT * FROM \"%s\"", q.Stream)
+	args := []string{}
+	if q.TraceID != "" {
+		args = append(args, fmt.Sprintf("trace_id = '%s'", q.TraceID))
+	}
+	if q.Service != "" {
+		args = append(args, fmt.Sprintf("service_name = '%s'", q.Service))
+	}
+	for i, arg := range args {
+		if i == 0 {
+			sql += " WHERE "
+		} else {
+			sql += " AND "
+		}
+		sql += arg
+	}
+	sql += " ORDER BY duration DESC"
+	if q.Limit > 0 {
+		sql += fmt.Sprintf(" LIMIT %d", q.Limit)
+	}
+
+	payload := map[string]any{
+		"query": sql,
+		"from":  q.StartTime,
+		"to":    q.EndTime,
+	}
+	body, _ := json.Marshal(payload)
+	respBody, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/%s/_search", c.orgID), body)
+	if err != nil {
+		return nil, fmt.Errorf("search trace: %w", err)
+	}
+
+	var resp struct {
+		Hits []map[string]any `json:"hits"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, fmt.Errorf("parse trace response: %w", err)
+	}
+
+	var results []contract.ToolResult
+	for i, hit := range resp.Hits {
+		score := 0.9 - float64(i)*0.1
+		results = append(results, mapSpan(hit, score))
+	}
+	return results, nil
+}
+
+// QueryMetric queries OO metrics via SQL aggregation.
+func (c *Client) QueryMetric(ctx context.Context, q MetricQuery) ([]contract.ToolResult, error) {
+	sql := fmt.Sprintf("SELECT * FROM \"%s\" WHERE service = '%s'", q.Stream, q.Service)
+	if q.Metric != "" {
+		sql += fmt.Sprintf(" AND metric = '%s'", q.Metric)
+	}
+	sql += " ORDER BY timestamp DESC LIMIT 20"
+
+	payload := map[string]any{
+		"query": sql,
+		"from":  q.StartTime,
+		"to":    q.EndTime,
+	}
+	body, _ := json.Marshal(payload)
+	respBody, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/%s/_search", c.orgID), body)
+	if err != nil {
+		return nil, fmt.Errorf("query metric: %w", err)
+	}
+
+	var resp struct {
+		Hits []map[string]any `json:"hits"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, fmt.Errorf("parse metric response: %w", err)
+	}
+
+	var results []contract.ToolResult
+	for _, hit := range resp.Hits {
+		results = append(results, contract.ToolResult{
+			Name:    "metric_anomaly",
+			Summary: extractString(hit, "metric") + " = " + fmt.Sprintf("%v", hit["value"]),
+			Score:   0.6,
+			Payload: hit,
+		})
+	}
+	return results, nil
+}
+
+// BuildDrilldownURL generates a URL linking to the OO UI for drill-down.
+func (c *Client) BuildDrilldownURL(ref DrilldownRef) (string, error) {
+	var path string
+	switch ref.Type {
+	case "logs":
+		path = fmt.Sprintf("/web/logs?stream=%s&from=%d&to=%d", ref.Stream, ref.StartTime, ref.EndTime)
+	case "traces":
+		path = fmt.Sprintf("/web/traces?stream=%s&from=%d&to=%d", ref.Stream, ref.StartTime, ref.EndTime)
+		if ref.TraceID != "" {
+			path += "&trace_id=" + ref.TraceID
+		}
+	case "metrics":
+		path = fmt.Sprintf("/web/metrics?stream=%s&from=%d&to=%d", ref.Stream, ref.StartTime, ref.EndTime)
+	default:
+		return "", fmt.Errorf("unknown drilldown type: %s", ref.Type)
+	}
+	return c.baseURL + path, nil
+}
+
+func (c *Client) doRequest(ctx context.Context, method, path string, body []byte) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	c.logger.Debug("oo request", "method", method, "path", path)
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("oo returned %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return respBody, nil
+}
+
+func (c *Client) buildLogSQL(q LogQuery) string {
+	sql := fmt.Sprintf("SELECT * FROM \"%s\"", q.Stream)
+	var conditions []string
+	if q.Service != "" {
+		conditions = append(conditions, fmt.Sprintf("service = '%s'", q.Service))
+	}
+	for _, kw := range q.Keywords {
+		conditions = append(conditions, fmt.Sprintf("log LIKE '%%%s%%'", kw))
+	}
+	if len(conditions) > 0 {
+		sql += " WHERE " + conditions[0]
+		for _, cond := range conditions[1:] {
+			sql += " AND " + cond
+		}
+	}
+	sql += " ORDER BY _timestamp DESC"
+	if q.Limit > 0 {
+		sql += fmt.Sprintf(" LIMIT %d", q.Limit)
+	}
+	return sql
+}
+
+func scoreFromLevel(level string) float64 {
+	switch level {
+	case "error", "fatal":
+		return 0.9
+	case "warn", "warning":
+		return 0.7
+	default:
+		return 0.5
+	}
+}
