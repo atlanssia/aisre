@@ -1,0 +1,17 @@
+Based on the RCA analysis, generate actionable recommendations.
+
+Root Cause: {{.RootCause}}
+Evidence: {{range .Evidence}}{{.Summary}}; {{end}}
+Blast Radius: {{range .BlastRadius}}{{.}}, {{end}}
+
+Generate recommendations in three categories:
+
+1. IMMEDIATE - Actions to stop the bleeding right now (restart, scale, degrade)
+2. FIX - Actions to address the root cause (config change, code fix, dependency update)
+3. PREVENTION - Actions to prevent recurrence (monitoring, testing, architecture)
+
+For each action specify:
+- Description (imperative verb)
+- Risk level (low/medium/high)
+- Estimated impact
+- Recommended owner (SRE/Dev/Platform)

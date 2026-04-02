@@ -1,0 +1,12 @@
+Generate an executive summary of the following incident for technical leadership.
+
+Incident: {{.Summary}}
+Root Cause: {{.RootCause}}
+Blast Radius: {{range .BlastRadius}}{{.}}, {{end}}
+MTTR: {{.MTTR}}
+Business Impact: {{.BusinessImpact}}
+
+Output a 3-paragraph summary:
+1. What happened (plain language)
+2. Root cause and risk assessment
+3. Recommended investment to prevent recurrence

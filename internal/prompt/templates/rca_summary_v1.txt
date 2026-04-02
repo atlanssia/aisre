@@ -1,0 +1,7 @@
+Summarize the following RCA report into a single actionable sentence for a TL;DR card.
+
+Root Cause: {{.RootCause}}
+Impact: {{range .BlastRadius}}{{.}}, {{end}}
+Confidence: {{.Confidence}}
+
+Output a single sentence that a值班 SRE can read in 5 seconds and decide what to do next.
