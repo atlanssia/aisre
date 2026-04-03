@@ -75,6 +75,22 @@ type Feedback struct {
 	CreatedAt   string
 }
 
+// EmbeddingRepo defines the persistence interface for incident embeddings.
+type EmbeddingRepo interface {
+	Create(ctx context.Context, incidentID int64, service string, embedding []byte, model string) error
+	GetByIncidentID(ctx context.Context, incidentID int64) (*Embedding, error)
+	ListByService(ctx context.Context, service string) ([]Embedding, error)
+}
+
+// Embedding is the persistent embedding entity.
+type Embedding struct {
+	IncidentID int64
+	Service    string
+	Embedding  []byte
+	Model      string
+	CreatedAt  string
+}
+
 // IncidentFilter holds filter parameters for listing incidents.
 type IncidentFilter struct {
 	Service   string
