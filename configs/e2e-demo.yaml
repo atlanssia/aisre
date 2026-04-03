@@ -24,3 +24,13 @@ adapters:
 log:
   level: "debug"
   format: "text"
+
+embedding:
+  base_url: "http://localhost:9999"
+  api_key: "mock-key"
+  model: "text-embedding-mock"
+  dimensions: 3
+
+features:
+  similar_incident:
+    enabled: true

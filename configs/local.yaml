@@ -38,3 +38,13 @@ adapters:
 log:
   level: "debug"
   format: "json"
+
+embedding:
+  base_url: ""
+  api_key: ""
+  model: "text-embedding-3-small"
+  dimensions: 1536
+
+features:
+  similar_incident:
+    enabled: false

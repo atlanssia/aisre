@@ -12,6 +12,7 @@ import (
 	"github.com/atlanssia/aisre/internal/analysis"
 	"github.com/atlanssia/aisre/internal/api"
 	"github.com/atlanssia/aisre/internal/incident"
+	"github.com/atlanssia/aisre/internal/similar"
 	"github.com/atlanssia/aisre/internal/store"
 	"github.com/atlanssia/aisre/internal/tool"
 	"github.com/spf13/viper"
@@ -103,6 +104,27 @@ func run(configPath string) error {
 		slog.Info("OO adapter wired", "base_url", ooCfg.BaseURL, "stream", stream)
 	}
 
+	// Similar Incident Service (Phase 2, feature-flagged)
+	var similarSvc *similar.Service
+	if viper.GetBool("features.similar_incident.enabled") {
+		embCfg := analysis.EmbeddingConfig{
+			BaseURL:    viper.GetString("embedding.base_url"),
+			APIKey:     viper.GetString("embedding.api_key"),
+			Model:      viper.GetString("embedding.model"),
+			Dimensions: viper.GetInt("embedding.dimensions"),
+		}
+		if embCfg.BaseURL == "" {
+			// Fallback: reuse main LLM config as embedding provider
+			embCfg.BaseURL = llmCfg.BaseURL
+			embCfg.APIKey = llmCfg.APIKey
+			embCfg.Model = "text-embedding-3-small"
+		}
+		embClient := analysis.NewEmbeddingClient(embCfg)
+		embRepo := store.NewEmbeddingRepo(db)
+		similarSvc = similar.NewService(embClient, embRepo, incidentRepo, reportRepo)
+		slog.Info("similar incident feature enabled", "model", embCfg.Model)
+	}
+
 	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
 		LLMClient:    llmClient,
 		IncidentRepo: incidentRepo,
@@ -114,7 +136,7 @@ func run(configPath string) error {
 
 	// HTTP Server
 	staticFS := getStaticFS()
-	router := api.NewRouterFull(incidentSvc, rcaSvc, feedbackRepo, reportRepo, staticFS)
+	router := api.NewRouterFullWithSimilar(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, staticFS)
 	addr := fmt.Sprintf("%s:%d",
 		viper.GetString("server.host"),
 		viper.GetInt("server.port"),

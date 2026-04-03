@@ -27,6 +27,12 @@ type AnalysisService interface {
 	GetEvidence(ctx context.Context, reportID int64) ([]contract.EvidenceItem, error)
 }
 
+// SimilarService defines the interface for computing embeddings and finding similar incidents.
+type SimilarService interface {
+	ComputeEmbedding(ctx context.Context, incidentID int64) error
+	FindSimilar(ctx context.Context, incidentID int64, topK int, threshold float64) ([]contract.SimilarResult, error)
+}
+
 func NewRouter(svc IncidentService) http.Handler {
 	return NewRouterWithAnalysis(svc, nil)
 }
@@ -44,13 +50,18 @@ func NewRouterWithFeedback(svc IncidentService, analysisSvc AnalysisService, fee
 // NewRouterFull creates a router with all endpoints including report search.
 // staticFS is optional; if non-nil, SPA static files will be served for non-API routes.
 func NewRouterFull(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, staticFS fs.FS) http.Handler {
+	return NewRouterFullWithSimilar(svc, analysisSvc, feedbackRepo, reportRepo, nil, staticFS)
+}
+
+// NewRouterFullWithSimilar creates a router with all endpoints including similar incident search.
+func NewRouterFullWithSimilar(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, staticFS fs.FS) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RequestID)
 
-	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo}
+	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// SSE route — no contentTypeJSON middleware
@@ -69,6 +80,12 @@ func NewRouterFull(svc IncidentService, analysisSvc AnalysisService, feedbackRep
 			r.Post("/reports/{id}/feedback", h.submitFeedback)
 			r.Get("/reports/{id}/feedback", h.listFeedback)
 			r.Get("/reports/search", h.searchReports)
+
+			// Similar incident routes (feature-flagged)
+			if h.similarSvc != nil {
+				r.Get("/incidents/{id}/similar", h.getSimilar)
+				r.Post("/incidents/{id}/embed", h.computeEmbedding)
+			}
 		})
 	})
 
@@ -93,6 +110,7 @@ type handler struct {
 	analysisSvc AnalysisService
 	feedbackRepo store.FeedbackRepo
 	reportRepo   store.ReportRepo
+	similarSvc   SimilarService
 }
 
 func contentTypeJSON(next http.Handler) http.Handler {
