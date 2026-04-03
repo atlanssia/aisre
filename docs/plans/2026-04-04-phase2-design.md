@@ -4,7 +4,7 @@
 
 **Architecture:** Pipeline Enrichment 模式 — 在现有 3-Stage Pipeline 基础上插入新的数据收集和推理阶段，不替换核心流程。所有新功能作为独立 package 实现，通过 interface 解耦。
 
-**Tech Stack:** Go 1.26.1 + SQLite（JSON1 扩展）+ 已有 LLM Client + `@xyflow/react`（仅拓扑图）+ 零新外部依赖
+**Tech Stack:** Go 1.26.1 + SQLite（JSON1 扩展）+ LLM Client + Embedding Client（独立配置）+ `@xyflow/react`（仅拓扑图）+ 零新外部依赖
 
 ---
 
@@ -54,37 +54,41 @@ internal/postmortem/  → internal/store/, internal/analysis/
 **Migration 003: incident_embeddings**
 ```sql
 CREATE TABLE incident_embeddings (
-    incident_id TEXT NOT NULL,
-    embedding   BLOB NOT NULL,        -- JSON-encoded float64 array
+    incident_id INTEGER NOT NULL,
+    service     TEXT NOT NULL DEFAULT '',
+    embedding   BLOB NOT NULL,        -- binary-encoded float64 array (encoding/binary)
     model       TEXT NOT NULL DEFAULT 'text-embedding-3-small',
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    PRIMARY KEY (incident_id)
+    PRIMARY KEY (incident_id),
+    FOREIGN KEY (incident_id) REFERENCES incidents(id)
 );
+CREATE INDEX idx_embeddings_service ON incident_embeddings(service);
 ```
 
 **Migration 004: changes**
 ```sql
 CREATE TABLE changes (
-    id          TEXT PRIMARY KEY,     -- UUID
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     service     TEXT NOT NULL,
-    change_type TEXT NOT NULL,        -- deploy, config, feature_flag, infra
+    change_type TEXT NOT NULL CHECK(change_type IN ('deploy', 'config', 'feature_flag', 'infra')),
     summary     TEXT NOT NULL,
     author      TEXT,
     timestamp   TEXT NOT NULL,
-    metadata    TEXT DEFAULT '{}',    -- JSON
+    metadata    TEXT DEFAULT '{}' CHECK(json_valid(metadata)),
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX idx_changes_service_time ON changes(service, timestamp);
+CREATE UNIQUE INDEX idx_changes_dedup ON changes(service, change_type, timestamp, summary);
 ```
 
 **Migration 005: topology**
 ```sql
 CREATE TABLE topology_edges (
-    id           TEXT PRIMARY KEY,
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
     source       TEXT NOT NULL,
     target       TEXT NOT NULL,
-    relation     TEXT NOT NULL DEFAULT 'calls',  -- calls, depends_on, publishes
-    metadata     TEXT DEFAULT '{}',
+    relation     TEXT NOT NULL DEFAULT 'calls' CHECK(relation IN ('calls', 'depends_on', 'publishes')),
+    metadata     TEXT DEFAULT '{}' CHECK(json_valid(metadata)),
     updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE UNIQUE INDEX idx_topology_edge ON topology_edges(source, target, relation);
@@ -93,12 +97,12 @@ CREATE UNIQUE INDEX idx_topology_edge ON topology_edges(source, target, relation
 **Migration 006: prompt_templates**
 ```sql
 CREATE TABLE prompt_templates (
-    id          TEXT PRIMARY KEY,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT NOT NULL UNIQUE,
-    stage       TEXT NOT NULL,         -- context, evidence, rca
+    stage       TEXT NOT NULL CHECK(stage IN ('context', 'evidence', 'rca', 'summary')),
     system_tpl  TEXT NOT NULL,
     user_tpl    TEXT NOT NULL,
-    variables   TEXT DEFAULT '[]',     -- JSON array of variable names
+    variables   TEXT DEFAULT '[]' CHECK(json_valid(variables)),
     is_default  BOOLEAN DEFAULT FALSE,
     version     INTEGER DEFAULT 1,
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
@@ -109,36 +113,37 @@ CREATE TABLE prompt_templates (
 **Migration 007: alert_groups**
 ```sql
 CREATE TABLE alert_groups (
-    id          TEXT PRIMARY KEY,
-    fingerprint TEXT NOT NULL UNIQUE,  -- dedup key
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    fingerprint TEXT NOT NULL UNIQUE,
     title       TEXT NOT NULL,
-    severity    TEXT NOT NULL DEFAULT 'warning',
-    labels      TEXT DEFAULT '{}',     -- JSON
-    incident_id TEXT,                  -- nullable, linked later
+    severity    TEXT NOT NULL DEFAULT 'warning' CHECK(severity IN ('critical', 'high', 'medium', 'low', 'info')),
+    labels      TEXT DEFAULT '{}' CHECK(json_valid(labels)),
+    incident_id INTEGER,
     count       INTEGER DEFAULT 1,
     first_seen  TEXT NOT NULL,
     last_seen   TEXT NOT NULL,
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (incident_id) REFERENCES incidents(id)
 );
-CREATE INDEX idx_alert_groups_fingerprint ON alert_groups(fingerprint);
+CREATE INDEX idx_alert_groups_severity_time ON alert_groups(severity, last_seen);
+CREATE INDEX idx_alert_groups_incident ON alert_groups(incident_id);
 ```
 
 **Migration 008: postmortems**
 ```sql
 CREATE TABLE postmortems (
-    id          TEXT PRIMARY KEY,
-    incident_id TEXT NOT NULL,
-    report_id   TEXT NOT NULL,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_id INTEGER NOT NULL,
+    report_id   INTEGER NOT NULL,
     title       TEXT NOT NULL,
-    content     TEXT NOT NULL,         -- Markdown
-    status      TEXT NOT NULL DEFAULT 'draft',  -- draft, reviewed, published
+    content     TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'reviewed', 'published')),
     author      TEXT,
     reviewed_by TEXT,
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (incident_id) REFERENCES incidents(id),
-    FOREIGN KEY (report_id) REFERENCES reports(id)
+    FOREIGN KEY (report_id) REFERENCES rca_reports(id)
 );
 ```
 
@@ -199,7 +204,7 @@ CREATE TABLE postmortems (
 
 **核心算法：**
 1. 新 Incident 创建时，提取 service + error pattern + metric anomaly 特征
-2. 调用 LLM embedding API 生成向量（复用 `LLMClient`，新增 `Embed()` 方法）
+2. 调用独立的 Embedding API 生成向量（使用 `EmbeddingClient`，与主 LLM 解耦）
 3. 与 SQLite 中已有 embedding 计算余弦相似度
 4. 返回 Top-5 相似事件，附带相似度分数
 
@@ -219,47 +224,72 @@ type SimilarResult struct {
 }
 ```
 
-**LLMClient 扩展：**
+**独立的 Embedding 客户端：**
 ```go
-// 在 llm_client.go 新增
-func (c *LLMClient) Embed(ctx context.Context, texts []string) ([][]float64, error)
-// 调用 POST /v1/embeddings
+// internal/analysis/embedding_client.go
+type EmbeddingConfig struct {
+    BaseURL    string  // 独立 endpoint，可与主 LLM 不同
+    APIKey     string  // 独立 API key
+    Model      string  // e.g. text-embedding-3-small
+    Dimensions int     // e.g. 1536
+}
+
+type EmbeddingClient struct {
+    cfg  EmbeddingConfig
+    http *http.Client
+}
+
+func NewEmbeddingClient(cfg EmbeddingConfig) *EmbeddingClient
+func (c *EmbeddingClient) Embed(ctx context.Context, texts []string) ([][]float64, error)
+// 调用 POST {base_url}/embeddings，完全独立于 LLMClient
 ```
+
+**配置示例：**
+```yaml
+embedding:
+  base_url: "https://api.openai.com/v1"
+  api_key: "${EMBEDDING_API_KEY}"
+  model: "text-embedding-3-small"
+  dimensions: 1536
+```
+
+支持环境变量覆盖：`EMBEDDING_BASE_URL`、`EMBEDDING_API_KEY`、`EMBEDDING_MODEL`。
 
 **余弦相似度：** 纯 Go 实现，无外部依赖。
 
 ### 5.2 Change Correlation (F2)
 
-**数据来源：** 通过 `ToolProvider` 接口扩展获取变更事件。
+**数据来源：** 通过独立的 `ChangeProvider` 接口获取变更事件（Go 接口组合模式）。
 
-**接口扩展：**
+**接口设计：**
 ```go
-// 在 adapter/provider.go 新增方法
-type ToolProvider interface {
-    SearchLogs(ctx context.Context, q LogQuery) ([]LogRecord, error)
-    GetTrace(ctx context.Context, traceID string) (*TraceData, error)
-    QueryMetric(ctx context.Context, q MetricQuery) (*MetricSeries, error)
-    // Phase 2 新增
+// adapter/provider.go — Phase 1 ToolProvider 不变
+
+// adapter/change_provider.go — Phase 2 独立接口
+type ChangeProvider interface {
     GetChanges(ctx context.Context, q ChangeQuery) ([]ChangeEvent, error)
 }
 
+// DTO 在 internal/contract/change.go 定义
 type ChangeQuery struct {
-    Service   string
-    StartTime string
-    EndTime   string
+    Service     string
+    StartTime   string
+    EndTime     string
     ChangeTypes []string // deploy, config, feature_flag, infra
 }
 
 type ChangeEvent struct {
-    ID          string
-    Service     string
-    ChangeType  string
-    Summary     string
-    Author      string
-    Timestamp   string
-    Metadata    map[string]any
+    ID         int64
+    Service    string
+    ChangeType string
+    Summary    string
+    Author     string
+    Timestamp  string
+    Metadata   map[string]any
 }
 ```
+
+**实现方式：** 在 `internal/adapter/openobserve/` 新增 `ChangeAdapter`，实现 `ChangeProvider` 接口。遵循 CLAUDE.md 规则："接口定义在消费包中"——由 `internal/change/` 定义所需接口，OO adapter 实现。
 
 **关联逻辑：**
 1. 在 Evidence 收集阶段后，查询 Incident 时间窗口内的变更
@@ -296,9 +326,16 @@ type TopologyGraph struct {
 
 **功能：**
 - CRUD 管理 Prompt 模板
-- 支持 Go template 语法变量插值
+- 使用白名单变量的简单插值语法 `{{.variable_name}}`（非 Go template）
 - Dry-run 测试（输入变量值，预览渲染结果）
 - 版本管理（更新模板自动 +1 version）
+
+**安全设计（模板注入防护）：**
+1. 不使用 `text/template`，实现简单的 `strings.Replace` 变量插值
+2. 白名单校验：只允许模板中引用 `variables` 字段声明的变量名
+3. 模板内容禁止包含 Go template 指令（`{{` 后非 `.` 开头的直接拒绝）
+4. DryRun 使用受限数据对象，不包含 API key 等敏感信息
+5. 递归深度限制：单次渲染最多替换 100 个变量引用
 
 **接口：**
 ```go
@@ -370,16 +407,22 @@ type Service interface {
 ## 7. Configuration
 
 ```yaml
+# 独立 Embedding 配置（与主 LLM 解耦）
+embedding:
+  base_url: "https://api.openai.com/v1"
+  api_key: "${EMBEDDING_API_KEY}"
+  model: "text-embedding-3-small"
+  dimensions: 1536
+
 # Phase 2 feature flags
 features:
   similar_incident:
     enabled: true
-    embedding_model: "text-embedding-3-small"
     top_k: 5
     similarity_threshold: 0.7
   change_correlation:
     enabled: true
-    time_window: "2h"  # look back window before incident
+    time_window: "2h"
   topology:
     enabled: true
     infer_from_traces: true
@@ -392,6 +435,27 @@ features:
     enabled: true
     default_status: "draft"
 ```
+
+**Feature Flag 接线（在 `cmd/server/main.go`）：**
+```go
+// 读取 feature flags
+features := viper.Sub("features")
+// 按需初始化服务
+if features.GetBool("similar_incident.enabled") {
+    embedClient := analysis.NewEmbeddingClient(embedCfg)
+    similarSvc := similar.NewService(embedClient, incidentRepo, reportRepo)
+    // 注册路由
+}
+```
+
+每个 Feature 独立初始化，disabled 时不创建服务、不注册路由。
+
+**环境变量映射：**
+- `EMBEDDING_BASE_URL` → `embedding.base_url`
+- `EMBEDDING_API_KEY` → `embedding.api_key`
+- `EMBEDDING_MODEL` → `embedding.model`
+- `FEATURE_SIMILAR_ENABLED` → `features.similar_incident.enabled`
+- `FEATURE_CHANGE_ENABLED` → `features.change_correlation.enabled`
 
 ## 8. Milestone Timeline
 
@@ -425,7 +489,23 @@ features:
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Embedding 质量不足 | 相似事件不准 | 混合检索：embedding + keyword + metadata filter |
+| Embedding 质量不足 | 相似事件不准 | 混合检索：embedding + keyword + metadata filter（同 service 优先） |
 | 拓扑推断不完整 | 爆炸半径遗漏 | 支持手动补充 + 多数据源融合 |
 | LLM token 消耗增加 | 成本上升 | 压缩 evidence + 缓存 embedding + 按需生成 |
-| SQLite embedding 全表扫描 | 性能瓶颈 | 限制候选集（同 service 优先）+ 定期清理 |
+| SQLite embedding 全表扫描 | 性能瓶颈 | `service` 列索引限制候选集 + embedding 二进制存储（非 JSON） |
+
+## 11. Compatibility Notes
+
+### Alert 端点共存
+Phase 1 已有 `POST /api/v1/alerts/webhook`（接收外部告警）。Phase 2 新增 `POST /api/v1/alerts`（内部告警聚合入口）。两者共存：
+- `/alerts/webhook` — 保持不变，接收原始告警并创建 Incident
+- `/alerts` — 新端点，接收告警后聚合去重到 alert_group，手动 escalate 为 Incident
+
+### Contract-First 合规
+所有新 Feature 的 DTO 必须先在 `internal/contract/` 定义：
+- `contract/similar.go` — SimilarResult, SimilarQuery
+- `contract/change.go` — ChangeEvent, ChangeQuery
+- `contract/topology.go` — TopologyGraph, TopologyNode, TopologyEdge, BlastRadius
+- `contract/prompt_template.go` — PromptTemplate, PromptTestRequest
+- `contract/alert_group.go` — AlertGroup, IncomingAlert, AlertGroupFilter
+- `contract/postmortem.go` — Postmortem, UpdatePostmortem
