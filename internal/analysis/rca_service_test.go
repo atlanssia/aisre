@@ -61,8 +61,8 @@ func TestRCAService_AnalyzeIncident(t *testing.T) {
 			BlastRadius: []string{"user-service", "api-gateway"},
 			Actions: Actions{
 				Immediate: []string{"Restart user-service pods"},
-				ShortTerm: []string{"Fix connection leak in auth module"},
-				LongTerm:  []string{"Add connection pool monitoring"},
+				Fix:        []string{"Fix connection leak in auth module"},
+				Prevention: []string{"Add connection pool monitoring"},
 			},
 			Uncertainties: []string{"Cannot confirm if traffic spike is correlated"},
 		}
@@ -607,8 +607,8 @@ func TestRCAService_FullPipeline(t *testing.T) {
 		BlastRadius: []string{"payment-service", "order-service", "notification-service"},
 		Actions: Actions{
 			Immediate: []string{"Rollback deployment v2.3.1", "Increase connection pool to 100"},
-			ShortTerm: []string{"Add connection pool metrics", "Review connection lifecycle"},
-			LongTerm:  []string{"Implement circuit breaker pattern"},
+			Fix:        []string{"Add connection pool metrics", "Review connection lifecycle"},
+			Prevention: []string{"Implement circuit breaker pattern"},
 		},
 		Uncertainties: []string{"Network latency measurements unavailable"},
 	}

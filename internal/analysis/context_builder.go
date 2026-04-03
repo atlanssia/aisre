@@ -66,7 +66,7 @@ func (cb *ContextBuilder) BuildPrompt(ctx *AnalysisContext) string {
 	b.WriteString("hypotheses (array of {id, description, likelihood, evidence_ids}), ")
 	b.WriteString("evidence_ids (array of referenced evidence IDs), ")
 	b.WriteString("blast_radius (array of affected services), ")
-	b.WriteString("actions ({immediate, short_term, long_term} arrays), ")
+	b.WriteString("actions ({immediate, fix, prevention} arrays), ")
 	b.WriteString("and uncertainties (array of unknowns).\n")
 
 	return b.String()

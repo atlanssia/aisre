@@ -175,7 +175,7 @@ func (s *RCAService) analyze(ctx context.Context, incident *contract.Incident, t
 	rcaPrompt = rcaPrompt + "\n\n## Evidence Analysis (Stage 2)\n" + evidenceResp.Content
 
 	rcaMessages := []Message{
-		{Role: "system", Content: "You are a senior SRE Root Cause Analyst. You must follow evidence and avoid unsupported assumptions. Respond with valid JSON only.\n\nYour response MUST include a \"timeline\" field: an array of events reconstructing the fault chronology.\nEach timeline entry: {\"time\": \"ISO8601\", \"type\": \"symptom|error|deploy|alert|action\", \"service\": \"...\", \"description\": \"...\", \"severity\": \"info|warning|error|critical\"}"},
+		{Role: "system", Content: "You are a senior SRE Root Cause Analyst. You must follow evidence and avoid unsupported assumptions. Respond with valid JSON only.\n\nYour response MUST include:\n- \"actions\": {\"immediate\": [...], \"fix\": [...], \"prevention\": [...]}\n- \"timeline\": an array of events reconstructing the fault chronology.\nEach timeline entry: {\"time\": \"ISO8601\", \"type\": \"symptom|error|deploy|alert|action\", \"service\": \"...\", \"description\": \"...\", \"severity\": \"info|warning|error|critical\"}"},
 		{Role: "user", Content: rcaPrompt},
 	}
 
@@ -222,8 +222,8 @@ func (s *RCAService) analyze(ctx context.Context, incident *contract.Incident, t
 
 	// Step 7: Build response
 	recommendations := rcaOutput.Actions.Immediate
-	recommendations = append(recommendations, rcaOutput.Actions.ShortTerm...)
-	recommendations = append(recommendations, rcaOutput.Actions.LongTerm...)
+	recommendations = append(recommendations, rcaOutput.Actions.Fix...)
+	recommendations = append(recommendations, rcaOutput.Actions.Prevention...)
 
 	s.logger.Info("RCA analysis complete",
 		"report_id", reportID,
@@ -293,6 +293,32 @@ func (s *RCAService) GetReport(ctx context.Context, reportID int64) (*contract.R
 		}
 	}
 
+	// Parse recommendations and timeline from stored JSON
+	var recommendations []string
+	var timeline []contract.TimelineEvent
+	if report.ReportJSON != "" {
+		var stored struct {
+			Actions struct {
+				Immediate  []string `json:"immediate"`
+				Fix        []string `json:"fix"`
+				Prevention []string `json:"prevention"`
+			} `json:"actions"`
+			Timeline []contract.TimelineEvent `json:"timeline"`
+		}
+		if json.Unmarshal([]byte(report.ReportJSON), &stored) == nil {
+			recommendations = append(recommendations, stored.Actions.Immediate...)
+			recommendations = append(recommendations, stored.Actions.Fix...)
+			recommendations = append(recommendations, stored.Actions.Prevention...)
+			timeline = stored.Timeline
+		}
+	}
+	if recommendations == nil {
+		recommendations = []string{}
+	}
+	if timeline == nil {
+		timeline = []contract.TimelineEvent{}
+	}
+
 	return &contract.ReportResponse{
 		ID:              report.ID,
 		IncidentID:      report.IncidentID,
@@ -300,7 +326,8 @@ func (s *RCAService) GetReport(ctx context.Context, reportID int64) (*contract.R
 		RootCause:       report.RootCause,
 		Confidence:      report.Confidence,
 		Evidence:        evidence,
-		Recommendations: []string{},
+		Recommendations: recommendations,
+		Timeline:        timeline,
 		CreatedAt:       report.CreatedAt,
 	}, nil
 }

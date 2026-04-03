@@ -47,9 +47,9 @@ type Hypothesis struct {
 
 // Actions represents recommended actions grouped by urgency.
 type Actions struct {
-	Immediate []string `json:"immediate"`
-	ShortTerm []string `json:"short_term"`
-	LongTerm  []string `json:"long_term"`
+	Immediate  []string `json:"immediate"`
+	Fix        []string `json:"fix"`
+	Prevention []string `json:"prevention"`
 }
 
 // TimelineEntry is a structured timeline event from the LLM.

@@ -194,8 +194,8 @@ func TestLLMClient_ParseRCAOutput(t *testing.T) {
 			"blast_radius": ["user-service", "api-gateway"],
 			"actions": {
 				"immediate": ["Restart user-service pods", "Increase connection pool size"],
-				"short_term": ["Fix connection leak in auth module"],
-				"long_term": ["Add connection pool monitoring"]
+				"fix": ["Fix connection leak in auth module"],
+				"prevention": ["Add connection pool monitoring"]
 			},
 			"uncertainties": ["Cannot confirm if traffic spike is correlated"]
 		}`

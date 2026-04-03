@@ -67,6 +67,7 @@ func NewRouterFull(svc IncidentService, analysisSvc AnalysisService, feedbackRep
 			r.Get("/reports/{id}", h.getReport)
 			r.Get("/reports/{id}/evidence", h.getEvidence)
 			r.Post("/reports/{id}/feedback", h.submitFeedback)
+			r.Get("/reports/{id}/feedback", h.listFeedback)
 			r.Get("/reports/search", h.searchReports)
 		})
 	})

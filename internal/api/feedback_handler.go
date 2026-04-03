@@ -76,6 +76,41 @@ func (h *handler) submitFeedback(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+func (h *handler) listFeedback(w http.ResponseWriter, r *http.Request) {
+	if h.feedbackRepo == nil {
+		writeError(w, http.StatusServiceUnavailable, "feedback service not configured", "INTERNAL_ERROR")
+		return
+	}
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid report id", "INVALID_REQUEST")
+		return
+	}
+
+	items, err := h.feedbackRepo.ListByReport(r.Context(), id)
+	if err != nil {
+		slog.Error("listFeedback failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "internal server error", "INTERNAL_ERROR")
+		return
+	}
+
+	resp := make([]contract.FeedbackResponse, 0, len(items))
+	for _, fb := range items {
+		resp = append(resp, contract.FeedbackResponse{
+			ID:          fb.ID,
+			ReportID:    fb.ReportID,
+			Rating:      fb.Rating,
+			Comment:     fb.Comment,
+			UserID:      fb.UserID,
+			ActionTaken: fb.ActionTaken,
+			CreatedAt:   fb.CreatedAt,
+		})
+	}
+
+	json.NewEncoder(w).Encode(resp)
+}
+
 func (h *handler) searchReports(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	if query == "" {

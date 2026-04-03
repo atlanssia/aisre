@@ -16,8 +16,8 @@ var mockRCAOutput = map[string]any{
 	"blast_radius": []any{},
 	"actions": map[string]any{
 		"immediate":  []string{"Check service health"},
-		"short_term": []string{"Review recent deployments"},
-		"long_term":  []string{"Add monitoring"},
+		"fix":        []string{"Review recent deployments"},
+		"prevention": []string{"Add monitoring"},
 	},
 	"uncertainties": []any{},
 }
