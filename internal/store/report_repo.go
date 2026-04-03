@@ -93,6 +93,58 @@ func (r *sqliteReportRepo) List(ctx context.Context, filter ReportFilter) ([]Rep
 		}
 		items = append(items, report)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("report_repo: list rows: %w", err)
+	}
+	return items, nil
+}
+
+// Search performs a full-text search on report summary/root_cause with optional filters.
+func (r *sqliteReportRepo) Search(ctx context.Context, query string, filter ReportFilter) ([]Report, error) {
+	q := `SELECT r.id, r.incident_id, r.summary, r.root_cause, r.confidence, r.report_json, r.status, r.created_at
+		  FROM rca_reports r
+		  JOIN incidents i ON r.incident_id = i.id
+		  WHERE (r.summary LIKE ? OR r.root_cause LIKE ?)`
+	args := []any{"%" + query + "%", "%" + query + "%"}
+
+	if filter.Service != "" {
+		q += " AND i.service_name = ?"
+		args = append(args, filter.Service)
+	}
+	if filter.Severity != "" {
+		q += " AND i.severity = ?"
+		args = append(args, filter.Severity)
+	}
+
+	q += " ORDER BY r.created_at DESC"
+
+	if filter.Limit > 0 {
+		q += " LIMIT ?"
+		args = append(args, filter.Limit)
+	}
+	if filter.Offset > 0 {
+		q += " OFFSET ?"
+		args = append(args, filter.Offset)
+	}
+
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("report_repo: search: %w", err)
+	}
+	defer rows.Close()
+
+	var items []Report
+	for rows.Next() {
+		var report Report
+		if err := rows.Scan(&report.ID, &report.IncidentID, &report.Summary,
+			&report.RootCause, &report.Confidence, &report.ReportJSON, &report.Status, &report.CreatedAt); err != nil {
+			return nil, fmt.Errorf("report_repo: search scan: %w", err)
+		}
+		items = append(items, report)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("report_repo: search rows: %w", err)
+	}
 	return items, nil
 }
 
@@ -142,6 +194,9 @@ func (r *sqliteEvidenceRepo) ListByReport(ctx context.Context, reportID int64) (
 			return nil, fmt.Errorf("evidence_repo: scan: %w", err)
 		}
 		items = append(items, ev)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("evidence_repo: list rows: %w", err)
 	}
 	return items, nil
 }

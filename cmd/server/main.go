@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/atlanssia/aisre/internal/analysis"
 	"github.com/atlanssia/aisre/internal/api"
 	"github.com/atlanssia/aisre/internal/incident"
 	"github.com/atlanssia/aisre/internal/store"
@@ -54,12 +55,34 @@ func run(configPath string) error {
 	}
 	slog.Info("database ready", "dsn", dsn)
 
-	// Services
+	// Repositories
 	incidentRepo := store.NewIncidentRepo(db)
+	reportRepo := store.NewReportRepo(db)
+	evidenceRepo := store.NewEvidenceRepo(db)
+	feedbackRepo := store.NewFeedbackRepo(db)
+
+	// Services
 	incidentSvc := incident.NewService(incidentRepo)
 
+	// LLM Client (OpenAI Compatible)
+	llmCfg := analysis.LLMConfig{
+		BaseURL:   viper.GetString("llm.base_url"),
+		APIKey:    viper.GetString("llm.api_key"),
+		Model:     viper.GetString("llm.models.rca.model"),
+		MaxTokens: viper.GetInt("llm.models.rca.max_tokens"),
+	}
+	llmClient := analysis.NewLLMClient(llmCfg)
+
+	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
+		LLMClient:    llmClient,
+		IncidentRepo: incidentRepo,
+		ReportRepo:   reportRepo,
+		EvidenceRepo: evidenceRepo,
+		Logger:       slog.Default(),
+	})
+
 	// HTTP Server
-	router := api.NewRouter(incidentSvc)
+	router := api.NewRouterFull(incidentSvc, rcaSvc, feedbackRepo, reportRepo)
 	addr := fmt.Sprintf("%s:%d",
 		viper.GetString("server.host"),
 		viper.GetInt("server.port"),

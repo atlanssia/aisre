@@ -15,6 +15,7 @@ type ReportRepo interface {
 	Create(ctx context.Context, report *Report) (int64, error)
 	GetByID(ctx context.Context, id int64) (*Report, error)
 	List(ctx context.Context, filter ReportFilter) ([]Report, error)
+	Search(ctx context.Context, query string, filter ReportFilter) ([]Report, error)
 }
 
 // FeedbackRepo defines the persistence interface for user feedback.

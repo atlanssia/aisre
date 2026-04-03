@@ -32,23 +32,41 @@ func NewRouter(svc IncidentService) http.Handler {
 
 // NewRouterWithAnalysis creates a router with both incident and analysis endpoints.
 func NewRouterWithAnalysis(svc IncidentService, analysisSvc AnalysisService) http.Handler {
+	return NewRouterWithFeedback(svc, analysisSvc, nil)
+}
+
+// NewRouterWithFeedback creates a router with incident, analysis, and feedback endpoints.
+func NewRouterWithFeedback(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo) http.Handler {
+	return NewRouterFull(svc, analysisSvc, feedbackRepo, nil)
+}
+
+// NewRouterFull creates a router with all endpoints including report search.
+func NewRouterFull(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RequestID)
-	r.Use(contentTypeJSON)
 
-	h := &handler{svc: svc, analysisSvc: analysisSvc}
+	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo}
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Post("/incidents", h.createIncident)
-		r.Get("/incidents", h.listIncidents)
-		r.Get("/incidents/{id}", h.getIncident)
-		r.Post("/incidents/{id}/analyze", h.analyzeIncident)
-		r.Post("/alerts/webhook", h.handleWebhook)
-		r.Get("/reports/{id}", h.getReport)
-		r.Get("/reports/{id}/evidence", h.getEvidence)
+		// SSE route — no contentTypeJSON middleware
+		r.Get("/incidents/{id}/analyze/stream", h.streamAnalysis)
+
+		// JSON API routes
+		r.Group(func(r chi.Router) {
+			r.Use(contentTypeJSON)
+			r.Post("/incidents", h.createIncident)
+			r.Get("/incidents", h.listIncidents)
+			r.Get("/incidents/{id}", h.getIncident)
+			r.Post("/incidents/{id}/analyze", h.analyzeIncident)
+			r.Post("/alerts/webhook", h.handleWebhook)
+			r.Get("/reports/{id}", h.getReport)
+			r.Get("/reports/{id}/evidence", h.getEvidence)
+			r.Post("/reports/{id}/feedback", h.submitFeedback)
+			r.Get("/reports/search", h.searchReports)
+		})
 	})
 
 	r.Get("/health", h.health)
@@ -59,6 +77,8 @@ func NewRouterWithAnalysis(svc IncidentService, analysisSvc AnalysisService) htt
 type handler struct {
 	svc         IncidentService
 	analysisSvc AnalysisService
+	feedbackRepo store.FeedbackRepo
+	reportRepo   store.ReportRepo
 }
 
 func contentTypeJSON(next http.Handler) http.Handler {
