@@ -34,6 +34,11 @@ func run(configPath string) error {
 	// Load config
 	viper.SetConfigFile(configPath)
 	viper.AutomaticEnv()
+	// Bind env vars for embedding config (AutomaticEnv alone doesn't map underscores to dots)
+	viper.BindEnv("embedding.base_url", "EMBEDDING_BASE_URL")
+	viper.BindEnv("embedding.api_key", "EMBEDDING_API_KEY")
+	viper.BindEnv("embedding.model", "EMBEDDING_MODEL")
+	viper.BindEnv("embedding.dimensions", "EMBEDDING_DIMENSIONS")
 	if err := viper.ReadInConfig(); err != nil {
 		return fmt.Errorf("read config: %w", err)
 	}
@@ -126,12 +131,13 @@ func run(configPath string) error {
 	}
 
 	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
-		LLMClient:    llmClient,
-		IncidentRepo: incidentRepo,
-		ReportRepo:   reportRepo,
-		EvidenceRepo: evidenceRepo,
-		Orchestrator: orchestrator,
-		Logger:       slog.Default(),
+		LLMClient:     llmClient,
+		IncidentRepo:  incidentRepo,
+		ReportRepo:    reportRepo,
+		EvidenceRepo:  evidenceRepo,
+		Orchestrator:  orchestrator,
+		SimilarFinder: similarSvc,
+		Logger:        slog.Default(),
 	})
 
 	// HTTP Server

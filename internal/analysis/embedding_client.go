@@ -22,8 +22,9 @@ type EmbeddingConfig struct {
 
 // embeddingRequest is the request body for the embeddings API.
 type embeddingRequest struct {
-	Model string   `json:"model"`
-	Input []string `json:"input"`
+	Model      string   `json:"model"`
+	Input      []string `json:"input"`
+	Dimensions int      `json:"dimensions,omitempty"`
 }
 
 // embeddingResponse is the response from the embeddings API.
@@ -67,8 +68,9 @@ func (c *EmbeddingClient) Embed(ctx context.Context, texts []string) ([][]float6
 	}
 
 	reqBody := embeddingRequest{
-		Model: c.cfg.Model,
-		Input: texts,
+		Model:      c.cfg.Model,
+		Input:      texts,
+		Dimensions: c.cfg.Dimensions,
 	}
 
 	body, err := json.Marshal(reqBody)
