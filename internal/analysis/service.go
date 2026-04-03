@@ -18,6 +18,11 @@ type ToolOrchestrator interface {
 	ExecuteAll(ctx context.Context, incident *contract.Incident) ([]contract.ToolResult, error)
 }
 
+// SimilarFinder finds similar incidents (optional dependency for Phase 2).
+type SimilarFinder interface {
+	FindSimilar(ctx context.Context, incidentID int64, topK int, threshold float64) ([]contract.SimilarResult, error)
+}
+
 // Service defines the core analysis engine interface.
 type Service interface {
 	// AnalyzeIncident runs the full RCA pipeline for a given incident.
@@ -27,25 +32,27 @@ type Service interface {
 
 // RCAServiceConfig holds dependencies for the RCA service.
 type RCAServiceConfig struct {
-	LLMClient    *LLMClient
-	IncidentRepo store.IncidentRepo
-	ReportRepo   store.ReportRepo
-	EvidenceRepo store.EvidenceRepo
-	Orchestrator ToolOrchestrator // optional — if nil, AnalyzeIncident runs with no evidence
-	Logger       *slog.Logger
+	LLMClient     *LLMClient
+	IncidentRepo  store.IncidentRepo
+	ReportRepo    store.ReportRepo
+	EvidenceRepo  store.EvidenceRepo
+	Orchestrator  ToolOrchestrator // optional — if nil, AnalyzeIncident runs with no evidence
+	SimilarFinder SimilarFinder   // optional — if nil, no similar incidents injected (Phase 2)
+	Logger        *slog.Logger
 }
 
 // RCAService orchestrates the full RCA pipeline:
 // build context -> rank evidence -> call LLM -> parse response -> save report.
 type RCAService struct {
-	llm         *LLMClient
-	incidents   store.IncidentRepo
-	reports     store.ReportRepo
-	evidence    store.EvidenceRepo
-	orchestrator ToolOrchestrator
-	builder     *ContextBuilder
-	ranker      *EvidenceRanker
-	logger      *slog.Logger
+	llm           *LLMClient
+	incidents     store.IncidentRepo
+	reports       store.ReportRepo
+	evidence      store.EvidenceRepo
+	orchestrator  ToolOrchestrator
+	similarFinder SimilarFinder
+	builder       *ContextBuilder
+	ranker        *EvidenceRanker
+	logger        *slog.Logger
 }
 
 // NewRCAService creates a new RCA service with the given configuration.
@@ -54,14 +61,15 @@ func NewRCAService(cfg RCAServiceConfig) *RCAService {
 		cfg.Logger = slog.Default()
 	}
 	return &RCAService{
-		llm:          cfg.LLMClient,
-		incidents:    cfg.IncidentRepo,
-		reports:      cfg.ReportRepo,
-		evidence:     cfg.EvidenceRepo,
-		orchestrator: cfg.Orchestrator,
-		builder:      NewContextBuilder(),
-		ranker:       NewEvidenceRanker(),
-		logger:       cfg.Logger,
+		llm:           cfg.LLMClient,
+		incidents:     cfg.IncidentRepo,
+		reports:       cfg.ReportRepo,
+		evidence:      cfg.EvidenceRepo,
+		orchestrator:  cfg.Orchestrator,
+		similarFinder: cfg.SimilarFinder,
+		builder:       NewContextBuilder(),
+		ranker:        NewEvidenceRanker(),
+		logger:        cfg.Logger,
 	}
 }
 
@@ -143,6 +151,29 @@ func (s *RCAService) analyze(ctx context.Context, incident *contract.Incident, t
 		"evidence_count", len(toolResults),
 	)
 
+	// Inject similar incidents (Phase 2, optional)
+	var similarRCA []contract.RCAReport
+	if s.similarFinder != nil {
+		similarResults, err := s.similarFinder.FindSimilar(ctx, incident.ID, 3, 0.5)
+		if err == nil && len(similarResults) > 0 {
+			for _, r := range similarResults {
+				similarRCA = append(similarRCA, contract.RCAReport{
+					Summary:   r.Summary,
+					RootCause: r.RootCause,
+				})
+			}
+			s.logger.Info("injected similar incidents into RCA prompt",
+				"incident_id", incident.ID,
+				"similar_count", len(similarRCA),
+			)
+		} else if err != nil {
+			s.logger.Warn("failed to find similar incidents, continuing without",
+				"incident_id", incident.ID,
+				"error", err,
+			)
+		}
+	}
+
 	// ── Stage 1: Context Prompt ──
 	// Convert raw alert + environment into structured analysis context
 	contextPrompt := s.buildContextPrompt(incident)
@@ -173,6 +204,15 @@ func (s *RCAService) analyze(ctx context.Context, incident *contract.Incident, t
 	rcaPrompt := s.builder.BuildPrompt(analysisCtx)
 	rcaPrompt = rcaPrompt + "\n\n## Structured Context (Stage 1)\n" + contextResp.Content
 	rcaPrompt = rcaPrompt + "\n\n## Evidence Analysis (Stage 2)\n" + evidenceResp.Content
+
+	// Append similar historical incidents if available
+	if len(similarRCA) > 0 {
+		rcaPrompt += "\n\n## Historical Similar Incidents\n"
+		for i, r := range similarRCA {
+			rcaPrompt += fmt.Sprintf("\n### Similar Incident %d\n- **Summary:** %s\n- **Root Cause:** %s\n",
+				i+1, r.Summary, r.RootCause)
+		}
+	}
 
 	rcaMessages := []Message{
 		{Role: "system", Content: "You are a senior SRE Root Cause Analyst. You must follow evidence and avoid unsupported assumptions. Respond with valid JSON only.\n\nYour response MUST include:\n- \"actions\": {\"immediate\": [...], \"fix\": [...], \"prevention\": [...]}\n- \"timeline\": an array of events reconstructing the fault chronology.\nEach timeline entry: {\"time\": \"ISO8601\", \"type\": \"symptom|error|deploy|alert|action\", \"service\": \"...\", \"description\": \"...\", \"severity\": \"info|warning|error|critical\"}"},
