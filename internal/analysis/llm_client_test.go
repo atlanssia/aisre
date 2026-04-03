@@ -29,7 +29,7 @@ func TestLLMClient_Complete(t *testing.T) {
 		}
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/v1/chat/completions" {
+			if r.URL.Path != "/chat/completions" {
 				t.Errorf("expected /v1/chat/completions, got %s", r.URL.Path)
 			}
 			if r.Method != http.MethodPost {
