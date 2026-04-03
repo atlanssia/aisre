@@ -8,16 +8,19 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"github.com/atlanssia/aisre/internal/contract"
 )
 
 // Client is the HTTP client for OpenObserve API.
 type Client struct {
-	baseURL string
-	orgID  string
-	token  string
-	http   *http.Client
-	logger *slog.Logger
+	baseURL  string
+	orgID   string
+	token   string
+	username string
+	password string
+	http    *http.Client
+	logger  *slog.Logger
 }
 
 // NewClient creates a new OO adapter client.
@@ -32,21 +35,69 @@ func NewClient(cfg Config, logger *slog.Logger) (*Client, error) {
 		logger = slog.Default()
 	}
 	return &Client{
-		baseURL: cfg.BaseURL,
-		orgID:  cfg.OrgID,
-		token:  cfg.Token,
-		http:   &http.Client{Timeout: cfg.Timeout},
-		logger: logger,
+		baseURL:  cfg.BaseURL,
+		orgID:   cfg.OrgID,
+		token:   cfg.Token,
+		username: cfg.Username,
+		password: cfg.Password,
+		http:    &http.Client{Timeout: cfg.Timeout},
+		logger:  logger,
 	}, nil
+}
+
+// Login authenticates against the OO API and stores the Bearer token.
+func (c *Client) Login(ctx context.Context) error {
+	if c.username == "" || c.password == "" {
+		return fmt.Errorf("openobserve: username and password required for login")
+	}
+
+	payload, _ := json.Marshal(map[string]string{
+		"name":     c.username,
+		"password": c.password,
+	})
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/auth/login", bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("openobserve: create login request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("openobserve: login request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("openobserve: login failed (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	var loginResp struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal(respBody, &loginResp); err != nil {
+		return fmt.Errorf("openobserve: parse login response: %w", err)
+	}
+
+	if loginResp.AccessToken == "" {
+		return fmt.Errorf("openobserve: login succeeded but no access_token returned")
+	}
+
+	c.token = loginResp.AccessToken
+	c.logger.Info("openobserve: login successful")
+	return nil
 }
 
 // SearchLogs queries OO logs via Search API and returns normalized results.
 func (c *Client) SearchLogs(ctx context.Context, q LogQuery) ([]contract.ToolResult, error) {
 	payload := map[string]any{
-		"query":     c.buildLogSQL(q),
-		"from":      q.StartTime,
-		"to":        q.EndTime,
-		"sql_mode":  "full",
+		"query": map[string]any{
+			"sql":       c.buildLogSQL(q),
+			"start_time": q.StartTime,
+			"end_time":   q.EndTime,
+			"sql_mode":   "full",
+		},
 	}
 	if q.Limit > 0 {
 		payload["size"] = q.Limit
@@ -97,9 +148,11 @@ func (c *Client) SearchTrace(ctx context.Context, q TraceQuery) ([]contract.Tool
 	}
 
 	payload := map[string]any{
-		"query": sql,
-		"from":  q.StartTime,
-		"to":    q.EndTime,
+		"query": map[string]any{
+			"sql":        sql,
+			"start_time": q.StartTime,
+			"end_time":   q.EndTime,
+		},
 	}
 	body, _ := json.Marshal(payload)
 	respBody, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/%s/_search", c.orgID), body)
@@ -131,9 +184,11 @@ func (c *Client) QueryMetric(ctx context.Context, q MetricQuery) ([]contract.Too
 	sql += " ORDER BY timestamp DESC LIMIT 20"
 
 	payload := map[string]any{
-		"query": sql,
-		"from":  q.StartTime,
-		"to":    q.EndTime,
+		"query": map[string]any{
+			"sql":        sql,
+			"start_time": q.StartTime,
+			"end_time":   q.EndTime,
+		},
 	}
 	body, _ := json.Marshal(payload)
 	respBody, err := c.doRequest(ctx, "POST", fmt.Sprintf("/api/%s/_search", c.orgID), body)
@@ -186,7 +241,11 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body []byte
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+		auth := c.token
+		if !strings.HasPrefix(auth, "Basic ") && !strings.HasPrefix(auth, "Bearer ") {
+			auth = "Bearer " + auth
+		}
+		req.Header.Set("Authorization", auth)
 	}
 
 	c.logger.Debug("oo request", "method", method, "path", path)

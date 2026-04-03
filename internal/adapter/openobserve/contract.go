@@ -9,11 +9,13 @@ import (
 
 // Config holds the OpenObserve connection configuration.
 type Config struct {
-	BaseURL string
-	OrgID   string
-	Token   string
-	Timeout time.Duration
-	Retries int
+	BaseURL  string
+	OrgID    string
+	Token    string
+	Username string // OO login username
+	Password string // OO login password
+	Timeout  time.Duration
+	Retries  int
 }
 
 // DefaultConfig returns a Config with sensible defaults.
