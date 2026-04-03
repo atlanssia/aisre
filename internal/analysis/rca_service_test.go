@@ -376,6 +376,211 @@ func TestFormatToolResultsForStorage(t *testing.T) {
 	}
 }
 
+// mockOrchestrator implements the ToolOrchestrator interface for testing.
+type mockOrchestrator struct {
+	results []contract.ToolResult
+	err     error
+	called  bool
+	inc     *contract.Incident
+}
+
+func (m *mockOrchestrator) ExecuteAll(ctx context.Context, incident *contract.Incident) ([]contract.ToolResult, error) {
+	m.called = true
+	m.inc = incident
+	return m.results, m.err
+}
+
+func TestRCAService_AnalyzeIncident_UsesOrchestrator(t *testing.T) {
+	_, incRepo, reportRepo, evidenceRepo := setupRCATest(t)
+	ctx := context.Background()
+
+	incID, err := incRepo.Create(ctx, &store.Incident{
+		Source:      "prometheus",
+		ServiceName: "api-gateway",
+		Severity:    "critical",
+		Status:      "open",
+		TraceID:     "trace-abc-123",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rcaOutput := RCAOutput{
+		Summary:     "Connection pool exhaustion",
+		RootCause:   "Leak in auth module",
+		Confidence:  0.92,
+		EvidenceIDs: []string{"ev_001"},
+		Actions: Actions{
+			Immediate: []string{"Restart pods"},
+		},
+	}
+	rcaJSON, _ := json.Marshal(rcaOutput)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{"role": "assistant", "content": string(rcaJSON)}, "finish_reason": "stop"},
+			},
+			"usage": map[string]any{"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	llmClient := NewLLMClient(LLMConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "gpt-4",
+	})
+
+	orch := &mockOrchestrator{
+		results: []contract.ToolResult{
+			{Name: "critical_log_cluster", Summary: "connection refused", Score: 0.95},
+			{Name: "slowest_span", Summary: "slow DB query", Score: 0.8},
+		},
+	}
+
+	svc := NewRCAService(RCAServiceConfig{
+		LLMClient:    llmClient,
+		IncidentRepo: incRepo,
+		ReportRepo:   reportRepo,
+		EvidenceRepo: evidenceRepo,
+		Orchestrator: orch,
+		Logger:       slog.Default(),
+	})
+
+	report, err := svc.AnalyzeIncident(ctx, incID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify orchestrator was called
+	if !orch.called {
+		t.Error("expected orchestrator to be called")
+	}
+	if orch.inc.ServiceName != "api-gateway" {
+		t.Errorf("expected service 'api-gateway', got %q", orch.inc.ServiceName)
+	}
+	if report.Summary != "Connection pool exhaustion" {
+		t.Errorf("unexpected summary: %s", report.Summary)
+	}
+	if report.Confidence != 0.92 {
+		t.Errorf("expected confidence 0.92, got %f", report.Confidence)
+	}
+	// Evidence should have been saved from orchestrator results
+	if len(report.Evidence) != 2 {
+		t.Errorf("expected 2 evidence items, got %d", len(report.Evidence))
+	}
+}
+
+func TestRCAService_AnalyzeIncident_OrchestratorFailure_GracefulDegradation(t *testing.T) {
+	_, incRepo, reportRepo, evidenceRepo := setupRCATest(t)
+	ctx := context.Background()
+
+	incID, err := incRepo.Create(ctx, &store.Incident{
+		Source: "test", ServiceName: "svc", Severity: "low", Status: "open",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rcaOutput := RCAOutput{
+		Summary:     "Insufficient data",
+		RootCause:   "No evidence collected",
+		Confidence:  0.1,
+		EvidenceIDs: []string{},
+	}
+	rcaJSON, _ := json.Marshal(rcaOutput)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{"role": "assistant", "content": string(rcaJSON)}, "finish_reason": "stop"},
+			},
+			"usage": map[string]any{"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	llmClient := NewLLMClient(LLMConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "gpt-4",
+	})
+
+	orch := &mockOrchestrator{
+		err: fmt.Errorf("all tools failed: [logs: connection refused, traces: timeout, metrics: unavailable]"),
+	}
+
+	svc := NewRCAService(RCAServiceConfig{
+		LLMClient:    llmClient,
+		IncidentRepo: incRepo,
+		ReportRepo:   reportRepo,
+		EvidenceRepo: evidenceRepo,
+		Orchestrator: orch,
+		Logger:       slog.Default(),
+	})
+
+	// Should NOT fail even when orchestrator fails — graceful degradation
+	report, err := svc.AnalyzeIncident(ctx, incID)
+	if err != nil {
+		t.Fatalf("expected graceful degradation, got error: %v", err)
+	}
+	if report == nil {
+		t.Error("expected report even with orchestrator failure")
+	}
+}
+
+func TestRCAService_AnalyzeIncident_NoOrchestrator(t *testing.T) {
+	_, incRepo, reportRepo, evidenceRepo := setupRCATest(t)
+	ctx := context.Background()
+
+	incID, err := incRepo.Create(ctx, &store.Incident{
+		Source: "test", ServiceName: "svc", Severity: "low", Status: "open",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rcaOutput := RCAOutput{
+		Summary:     "No evidence available",
+		RootCause:   "Unknown",
+		Confidence:  0.1,
+		EvidenceIDs: []string{},
+	}
+	rcaJSON, _ := json.Marshal(rcaOutput)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{"role": "assistant", "content": string(rcaJSON)}, "finish_reason": "stop"},
+			},
+			"usage": map[string]any{"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	llmClient := NewLLMClient(LLMConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "gpt-4",
+	})
+
+	// No orchestrator set — should still work with nil evidence
+	svc := NewRCAService(RCAServiceConfig{
+		LLMClient:    llmClient,
+		IncidentRepo: incRepo,
+		ReportRepo:   reportRepo,
+		EvidenceRepo: evidenceRepo,
+		// Orchestrator is nil
+		Logger: slog.Default(),
+	})
+
+	report, err := svc.AnalyzeIncident(ctx, incID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report == nil {
+		t.Error("expected report even without orchestrator")
+	}
+}
+
 // Test the complete flow with realistic data
 func TestRCAService_FullPipeline(t *testing.T) {
 	_, incRepo, reportRepo, evidenceRepo := setupRCATest(t)

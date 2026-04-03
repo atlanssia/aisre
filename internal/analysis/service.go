@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/atlanssia/aisre/internal/contract"
 	"github.com/atlanssia/aisre/internal/store"
@@ -125,33 +126,65 @@ func (s *RCAService) AnalyzeIncidentWithEvidence(ctx context.Context, incidentID
 	return s.analyze(ctx, contractInc, toolResults)
 }
 
-// analyze is the internal pipeline that orchestrates the RCA process.
+// analyze is the internal pipeline that orchestrates the 3-stage RCA process:
+// Stage 1: Context Prompt — structure incident + environment into analysis context
+// Stage 2: Evidence Prompt — rank and filter tool evidence into a prioritized chain
+// Stage 3: RCA Prompt — reason about root cause, generate hypotheses and actions
 func (s *RCAService) analyze(ctx context.Context, incident *contract.Incident, toolResults []contract.ToolResult) (*contract.ReportResponse, error) {
-	// Step 1: Rank evidence
+	// Rank evidence regardless of LLM stages
 	rankedEvidence := s.ranker.RankAndAssign(toolResults, 10)
 
-	// Step 2: Build context for LLM
+	// Build base context from incident + tool results
 	analysisCtx := s.builder.Build(incident, toolResults)
-	prompt := s.builder.BuildPrompt(analysisCtx)
 
-	// Step 3: Call LLM
-	s.logger.Info("calling LLM for RCA analysis",
+	s.logger.Info("starting 3-stage RCA pipeline",
 		"incident_id", incident.ID,
 		"service", incident.ServiceName,
 		"evidence_count", len(toolResults),
 	)
 
-	messages := []Message{
-		{Role: "system", Content: "You are an expert Site Reliability Engineer. Analyze the incident and respond with valid JSON only."},
-		{Role: "user", Content: prompt},
+	// ── Stage 1: Context Prompt ──
+	// Convert raw alert + environment into structured analysis context
+	contextPrompt := s.buildContextPrompt(incident)
+	contextMessages := []Message{
+		{Role: "system", Content: "You are an observability analysis assistant. Structure the raw alert into a JSON analysis context."},
+		{Role: "user", Content: contextPrompt},
 	}
-
-	llmResp, err := s.llm.Complete(ctx, messages)
+	contextResp, err := s.llm.Complete(ctx, contextMessages)
 	if err != nil {
-		return nil, fmt.Errorf("rca_service: LLM call failed: %w", err)
+		return nil, fmt.Errorf("rca_service: stage 1 (context) LLM call failed: %w", err)
 	}
 
-	// Step 4: Parse LLM response
+	// ── Stage 2: Evidence Prompt ──
+	// Rank and filter evidence, produce a prioritized evidence summary
+	evidencePrompt := s.buildEvidencePrompt(toolResults)
+	evidenceMessages := []Message{
+		{Role: "system", Content: "You are an SRE evidence analyst. From the multi-source data, extract and rank the most critical evidence. Respond with a JSON array of evidence items."},
+		{Role: "user", Content: evidencePrompt},
+	}
+	evidenceResp, err := s.llm.Complete(ctx, evidenceMessages)
+	if err != nil {
+		s.logger.Warn("stage 2 (evidence) LLM call failed, using ranked evidence", "error", err)
+		evidenceResp = &LLMResponse{Content: "[]"} // graceful degradation
+	}
+
+	// ── Stage 3: RCA Prompt ──
+	// Combine context + evidence to reason about root cause
+	rcaPrompt := s.builder.BuildPrompt(analysisCtx)
+	rcaPrompt = rcaPrompt + "\n\n## Structured Context (Stage 1)\n" + contextResp.Content
+	rcaPrompt = rcaPrompt + "\n\n## Evidence Analysis (Stage 2)\n" + evidenceResp.Content
+
+	rcaMessages := []Message{
+		{Role: "system", Content: "You are a senior SRE Root Cause Analyst. You must follow evidence and avoid unsupported assumptions. Respond with valid JSON only.\n\nYour response MUST include a \"timeline\" field: an array of events reconstructing the fault chronology.\nEach timeline entry: {\"time\": \"ISO8601\", \"type\": \"symptom|error|deploy|alert|action\", \"service\": \"...\", \"description\": \"...\", \"severity\": \"info|warning|error|critical\"}"},
+		{Role: "user", Content: rcaPrompt},
+	}
+
+	llmResp, err := s.llm.Complete(ctx, rcaMessages)
+	if err != nil {
+		return nil, fmt.Errorf("rca_service: stage 3 (RCA) LLM call failed: %w", err)
+	}
+
+	// Parse final RCA output
 	rcaOutput, err := s.llm.ParseRCAOutput(llmResp.Content)
 	if err != nil {
 		return nil, fmt.Errorf("rca_service: parse RCA output: %w", err)
@@ -210,6 +243,18 @@ func (s *RCAService) analyze(ctx context.Context, incident *contract.Incident, t
 		}
 	}
 
+	// Build timeline from LLM output
+	timeline := make([]contract.TimelineEvent, len(rcaOutput.Timeline))
+	for i, te := range rcaOutput.Timeline {
+		timeline[i] = contract.TimelineEvent{
+			Time:        te.Time,
+			Type:        te.Type,
+			Service:     te.Service,
+			Description: te.Description,
+			Severity:    te.Severity,
+		}
+	}
+
 	return &contract.ReportResponse{
 		ID:              reportID,
 		IncidentID:      incident.ID,
@@ -218,6 +263,7 @@ func (s *RCAService) analyze(ctx context.Context, incident *contract.Incident, t
 		Confidence:      rcaOutput.Confidence,
 		Evidence:        contractEvidence,
 		Recommendations: recommendations,
+		Timeline:        timeline,
 	}, nil
 }
 
@@ -280,4 +326,47 @@ func (s *RCAService) GetEvidence(ctx context.Context, reportID int64) ([]contrac
 		}
 	}
 	return result, nil
+}
+
+// buildContextPrompt creates the Stage 1 prompt that structures raw alert data.
+func (s *RCAService) buildContextPrompt(incident *contract.Incident) string {
+	return fmt.Sprintf(`Analyze this alert and produce a structured JSON context:
+
+Service: %s
+Severity: %s
+Source: %s
+TraceID: %s
+Time: %s
+
+Output JSON:
+{
+  "service": "...",
+  "anomaly_type": "...",
+  "time_window": {"start": "...", "end": "..."},
+  "affected_services": [],
+  "context_signals": []
+}`,
+		incident.ServiceName, incident.Severity, incident.Source,
+		incident.TraceID, incident.CreatedAt,
+	)
+}
+
+// buildEvidencePrompt creates the Stage 2 prompt that ranks evidence.
+func (s *RCAService) buildEvidencePrompt(toolResults []contract.ToolResult) string {
+	if len(toolResults) == 0 {
+		return "No tool evidence was collected. Return an empty JSON array: []"
+	}
+
+	var b strings.Builder
+	b.WriteString("From the following multi-source observability data, extract and rank the most critical evidence.\n\n")
+
+	for i, tr := range toolResults {
+		payloadJSON, _ := json.Marshal(tr.Payload)
+		fmt.Fprintf(&b, "### Evidence %d: %s (score: %.2f)\n%s\nDetails: %s\n\n",
+			i+1, tr.Name, tr.Score, tr.Summary, string(payloadJSON))
+	}
+
+	b.WriteString("For each evidence item, output JSON: {\"evidence_id\": \"ev_NNN\", \"type\": \"...\", \"score\": 0.0-1.0, \"summary\": \"...\", \"why_important\": \"...\"}\n")
+	b.WriteString("Sort by score descending. Output a JSON array.")
+	return b.String()
 }

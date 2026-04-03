@@ -42,7 +42,16 @@ export interface RCAReport {
   confidence: number
   evidence: EvidenceItem[]
   recommendations: string[]
+  timeline: TimelineEvent[]
   created_at: string
+}
+
+export interface TimelineEvent {
+  time: string
+  type: 'symptom' | 'error' | 'deploy' | 'alert' | 'action'
+  service: string
+  description: string
+  severity?: string
 }
 
 export interface EvidenceItem {

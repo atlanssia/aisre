@@ -11,14 +11,24 @@ type RCAReport struct {
 
 // ReportResponse is the DTO for the report API response.
 type ReportResponse struct {
-	ID              int64    `json:"id"`
-	IncidentID      int64    `json:"incident_id"`
-	Summary         string   `json:"summary"`
-	RootCause       string   `json:"root_cause"`
-	Confidence      float64  `json:"confidence"`
+	ID              int64          `json:"id"`
+	IncidentID      int64          `json:"incident_id"`
+	Summary         string         `json:"summary"`
+	RootCause       string         `json:"root_cause"`
+	Confidence      float64        `json:"confidence"`
 	Evidence        []EvidenceItem `json:"evidence"`
-	Recommendations []string `json:"recommendations"`
-	CreatedAt       string   `json:"created_at"`
+	Recommendations []string       `json:"recommendations"`
+	Timeline        []TimelineEvent `json:"timeline"`
+	CreatedAt       string         `json:"created_at"`
+}
+
+// TimelineEvent represents a single event in the fault timeline.
+type TimelineEvent struct {
+	Time        string `json:"time"`
+	Type        string `json:"type"`        // "symptom", "error", "deploy", "alert", "action"
+	Service     string `json:"service"`
+	Description string `json:"description"`
+	Severity    string `json:"severity,omitempty"`
 }
 
 // EvidenceItem represents a single piece of evidence.

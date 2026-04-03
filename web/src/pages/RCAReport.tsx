@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { reports, feedback } from '@/api/client'
-import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, ExternalLink } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, ExternalLink, Clock } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Spinner } from '@/components/Spinner'
 import { useToast } from '@/components/Toast'
@@ -128,6 +128,50 @@ export function RCAReport() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Timeline */}
+        {report.timeline && report.timeline.length > 0 && (
+          <div className="bg-card rounded-lg border border-border p-5">
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
+              Timeline
+            </h3>
+            <div className="relative space-y-0">
+              {report.timeline.map((ev, idx) => {
+                const typeColor =
+                  ev.type === 'error' || ev.type === 'alert'
+                    ? 'bg-red-500'
+                    : ev.type === 'deploy'
+                      ? 'bg-blue-500'
+                      : ev.type === 'action'
+                        ? 'bg-emerald-500'
+                        : 'bg-amber-500'
+                return (
+                  <div key={idx} className="flex items-start gap-3 pb-4 last:pb-0">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-2.5 h-2.5 rounded-full ${typeColor} mt-1.5 shrink-0`} />
+                      {idx < report.timeline!.length - 1 && (
+                        <div className="w-px flex-1 bg-border mt-1" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 pb-2">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs font-medium text-muted-foreground uppercase">
+                          {ev.type}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{ev.service}</span>
+                      </div>
+                      <p className="text-sm text-foreground">{ev.description}</p>
+                      <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{new Date(ev.time).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

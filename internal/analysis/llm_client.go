@@ -52,16 +52,26 @@ type Actions struct {
 	LongTerm  []string `json:"long_term"`
 }
 
+// TimelineEntry is a structured timeline event from the LLM.
+type TimelineEntry struct {
+	Time        string  `json:"time"`
+	Type        string  `json:"type"` // "symptom", "error", "deploy", "alert", "action"
+	Service     string  `json:"service"`
+	Description string  `json:"description"`
+	Severity    string  `json:"severity,omitempty"`
+}
+
 // RCAOutput is the structured output expected from the LLM.
 type RCAOutput struct {
-	Summary       string       `json:"summary"`
-	RootCause     string       `json:"root_cause"`
-	Confidence    float64      `json:"confidence"`
-	Hypotheses    []Hypothesis `json:"hypotheses"`
-	EvidenceIDs   []string     `json:"evidence_ids"`
-	BlastRadius   []string     `json:"blast_radius"`
-	Actions       Actions      `json:"actions"`
-	Uncertainties []string     `json:"uncertainties"`
+	Summary       string          `json:"summary"`
+	RootCause     string          `json:"root_cause"`
+	Confidence    float64         `json:"confidence"`
+	Hypotheses    []Hypothesis    `json:"hypotheses"`
+	EvidenceIDs   []string        `json:"evidence_ids"`
+	BlastRadius   []string        `json:"blast_radius"`
+	Actions       Actions         `json:"actions"`
+	Timeline      []TimelineEntry `json:"timeline"`
+	Uncertainties []string        `json:"uncertainties"`
 }
 
 // openaiRequest is the request body sent to OpenAI-compatible APIs.
