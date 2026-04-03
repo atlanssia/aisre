@@ -10,6 +10,13 @@ import (
 	"github.com/atlanssia/aisre/internal/store"
 )
 
+// ToolOrchestrator defines the interface for collecting evidence from observability tools.
+// The consuming package (analysis) defines this interface so the concrete tool.Orchestrator
+// is decoupled from the analysis engine.
+type ToolOrchestrator interface {
+	ExecuteAll(ctx context.Context, incident *contract.Incident) ([]contract.ToolResult, error)
+}
+
 // Service defines the core analysis engine interface.
 type Service interface {
 	// AnalyzeIncident runs the full RCA pipeline for a given incident.
@@ -23,19 +30,21 @@ type RCAServiceConfig struct {
 	IncidentRepo store.IncidentRepo
 	ReportRepo   store.ReportRepo
 	EvidenceRepo store.EvidenceRepo
+	Orchestrator ToolOrchestrator // optional — if nil, AnalyzeIncident runs with no evidence
 	Logger       *slog.Logger
 }
 
 // RCAService orchestrates the full RCA pipeline:
 // build context -> rank evidence -> call LLM -> parse response -> save report.
 type RCAService struct {
-	llm       *LLMClient
-	incidents store.IncidentRepo
-	reports   store.ReportRepo
-	evidence  store.EvidenceRepo
-	builder   *ContextBuilder
-	ranker    *EvidenceRanker
-	logger    *slog.Logger
+	llm         *LLMClient
+	incidents   store.IncidentRepo
+	reports     store.ReportRepo
+	evidence    store.EvidenceRepo
+	orchestrator ToolOrchestrator
+	builder     *ContextBuilder
+	ranker      *EvidenceRanker
+	logger      *slog.Logger
 }
 
 // NewRCAService creates a new RCA service with the given configuration.
@@ -44,19 +53,21 @@ func NewRCAService(cfg RCAServiceConfig) *RCAService {
 		cfg.Logger = slog.Default()
 	}
 	return &RCAService{
-		llm:       cfg.LLMClient,
-		incidents: cfg.IncidentRepo,
-		reports:   cfg.ReportRepo,
-		evidence:  cfg.EvidenceRepo,
-		builder:   NewContextBuilder(),
-		ranker:    NewEvidenceRanker(),
-		logger:    cfg.Logger,
+		llm:          cfg.LLMClient,
+		incidents:    cfg.IncidentRepo,
+		reports:      cfg.ReportRepo,
+		evidence:     cfg.EvidenceRepo,
+		orchestrator: cfg.Orchestrator,
+		builder:      NewContextBuilder(),
+		ranker:       NewEvidenceRanker(),
+		logger:       cfg.Logger,
 	}
 }
 
 // AnalyzeIncident runs the full RCA pipeline for an incident.
-// Note: This method fetches tool results via the tool orchestrator.
-// For testing and direct use, use AnalyzeIncidentWithEvidence.
+// It fetches tool results via the tool orchestrator (if configured),
+// then passes them to the analysis engine.
+// If the orchestrator fails or is not configured, analysis proceeds with no evidence.
 func (s *RCAService) AnalyzeIncident(ctx context.Context, incidentID int64) (*contract.ReportResponse, error) {
 	// Verify incident exists
 	inc, err := s.incidents.GetByID(ctx, incidentID)
@@ -75,8 +86,22 @@ func (s *RCAService) AnalyzeIncident(ctx context.Context, incidentID int64) (*co
 		CreatedAt:   inc.CreatedAt,
 	}
 
-	// Build context with no tool results (tools not integrated yet)
-	return s.analyze(ctx, contractInc, nil)
+	// Collect evidence via tool orchestrator
+	var toolResults []contract.ToolResult
+	if s.orchestrator != nil {
+		results, err := s.orchestrator.ExecuteAll(ctx, contractInc)
+		if err != nil {
+			// Graceful degradation: log warning but continue with no evidence
+			s.logger.Warn("tool orchestrator failed, continuing with no evidence",
+				"incident_id", incidentID,
+				"error", err,
+			)
+		} else {
+			toolResults = results
+		}
+	}
+
+	return s.analyze(ctx, contractInc, toolResults)
 }
 
 // AnalyzeIncidentWithEvidence runs RCA with provided tool results.

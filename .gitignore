@@ -22,6 +22,9 @@ go.work.sum
 /bin/
 /dist/
 
+# Embedded static files (copied during release build)
+cmd/server/static/
+
 # SQLite database files
 /data/
 *.db

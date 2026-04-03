@@ -3,12 +3,12 @@ package openobserve
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
-
-	"log/slog"
 )
 
 func TestClient_SearchLogs(t *testing.T) {
@@ -213,6 +213,170 @@ func TestMapLogHit_Short(t *testing.T) {
 	result := mapLogHit(hit, 0.9)
 	if result.Summary != "short message" {
 		t.Errorf("expected 'short message', got %s", result.Summary)
+	}
+}
+
+func TestSanitize(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"clean string", "api-gateway", "api-gateway"},
+		{"single quotes", "'; DROP TABLE users;--", " DROP TABLE users--"},
+		{"double quotes", `"value"`, "value"},
+		{"backslash", `test\'; DROP`, "test DROP"},
+		{"semicolon", "service; SELECT *", "service SELECT *"},
+		{"combined injection", `' OR '1'='1`, " OR 1=1"},
+		{"unicode safe", "日本語サービス", "日本語サービス"},
+		{"empty", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitize(tt.input)
+			if got != tt.want {
+				t.Errorf("sanitize(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildLogSQL_InjectionPrevention(t *testing.T) {
+	cfg := Config{BaseURL: "http://localhost", OrgID: "default", Token: "test", Timeout: 5 * time.Second}
+	client, _ := NewClient(cfg, slog.Default())
+
+	tests := []struct {
+		name             string
+		query            LogQuery
+		mustNotContain   string
+		mustContainValue string // the sanitized value that must appear in SQL
+	}{
+		{
+			name: "service quote injection neutralized",
+			query: LogQuery{
+				Stream:  "default",
+				Service: "' OR '1'='1",
+			},
+			mustNotContain:   "' OR '",
+			mustContainValue: " OR 1=1",
+		},
+		{
+			name: "keyword injection neutralized",
+			query: LogQuery{
+				Stream:   "default",
+				Keywords: []string{"'; DROP TABLE logs;--"},
+			},
+			mustNotContain:   "';",
+			mustContainValue: " DROP TABLE logs--",
+		},
+		{
+			name: "backslash injection neutralized",
+			query: LogQuery{
+				Stream:   "default",
+				Keywords: []string{`\'; OR 1=1--`},
+			},
+			mustNotContain:   `\'`,
+			mustContainValue: " OR 1=1--",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sql := client.buildLogSQL(tt.query)
+			if strings.Contains(sql, tt.mustNotContain) {
+				t.Errorf("SQL contains injection pattern %q: %s", tt.mustNotContain, sql)
+			}
+			if !strings.Contains(sql, tt.mustContainValue) {
+				t.Errorf("SQL does not contain sanitized value %q: %s", tt.mustContainValue, sql)
+			}
+		})
+	}
+}
+
+func TestBuildTraceSQL_InjectionPrevention(t *testing.T) {
+	cfg := Config{BaseURL: "http://localhost", OrgID: "default", Token: "test", Timeout: 5 * time.Second}
+	client, _ := NewClient(cfg, slog.Default())
+
+	tests := []struct {
+		name             string
+		query            TraceQuery
+		mustNotContain   string
+		mustContainValue string
+	}{
+		{
+			name: "trace_id injection neutralized",
+			query: TraceQuery{
+				Stream:  "default",
+				TraceID: "' OR '1'='1",
+			},
+			mustNotContain:   "' OR '",
+			mustContainValue: " OR 1=1",
+		},
+		{
+			name: "service injection neutralized",
+			query: TraceQuery{
+				Stream:  "default",
+				Service: "'; DROP TABLE traces;--",
+			},
+			mustNotContain:   "';",
+			mustContainValue: " DROP TABLE traces--",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sql := client.buildTraceSQL(tt.query)
+			if strings.Contains(sql, tt.mustNotContain) {
+				t.Errorf("SQL contains injection pattern %q: %s", tt.mustNotContain, sql)
+			}
+			if !strings.Contains(sql, tt.mustContainValue) {
+				t.Errorf("SQL does not contain sanitized value %q: %s", tt.mustContainValue, sql)
+			}
+		})
+	}
+}
+
+func TestBuildMetricSQL_InjectionPrevention(t *testing.T) {
+	cfg := Config{BaseURL: "http://localhost", OrgID: "default", Token: "test", Timeout: 5 * time.Second}
+	client, _ := NewClient(cfg, slog.Default())
+
+	tests := []struct {
+		name             string
+		query            MetricQuery
+		mustNotContain   string
+		mustContainValue string
+	}{
+		{
+			name: "service injection neutralized",
+			query: MetricQuery{
+				Stream:  "default",
+				Service: "' OR '1'='1",
+			},
+			mustNotContain:   "' OR '",
+			mustContainValue: " OR 1=1",
+		},
+		{
+			name: "metric injection neutralized",
+			query: MetricQuery{
+				Stream:  "default",
+				Service: "api-gateway",
+				Metric:  "'; DROP TABLE metrics;--",
+			},
+			mustNotContain:   "';",
+			mustContainValue: " DROP TABLE metrics--",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sql := client.buildMetricSQL(tt.query)
+			if strings.Contains(sql, tt.mustNotContain) {
+				t.Errorf("SQL contains injection pattern %q: %s", tt.mustNotContain, sql)
+			}
+			if !strings.Contains(sql, tt.mustContainValue) {
+				t.Errorf("SQL does not contain sanitized value %q: %s", tt.mustContainValue, sql)
+			}
+		})
 	}
 }
 

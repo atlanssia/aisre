@@ -126,26 +126,7 @@ func (c *Client) SearchLogs(ctx context.Context, q LogQuery) ([]contract.ToolRes
 
 // SearchTrace queries OO traces and returns normalized results.
 func (c *Client) SearchTrace(ctx context.Context, q TraceQuery) ([]contract.ToolResult, error) {
-	sql := fmt.Sprintf("SELECT * FROM \"%s\"", q.Stream)
-	args := []string{}
-	if q.TraceID != "" {
-		args = append(args, fmt.Sprintf("trace_id = '%s'", q.TraceID))
-	}
-	if q.Service != "" {
-		args = append(args, fmt.Sprintf("service_name = '%s'", q.Service))
-	}
-	for i, arg := range args {
-		if i == 0 {
-			sql += " WHERE "
-		} else {
-			sql += " AND "
-		}
-		sql += arg
-	}
-	sql += " ORDER BY duration DESC"
-	if q.Limit > 0 {
-		sql += fmt.Sprintf(" LIMIT %d", q.Limit)
-	}
+	sql := c.buildTraceSQL(q)
 
 	payload := map[string]any{
 		"query": map[string]any{
@@ -177,11 +158,7 @@ func (c *Client) SearchTrace(ctx context.Context, q TraceQuery) ([]contract.Tool
 
 // QueryMetric queries OO metrics via SQL aggregation.
 func (c *Client) QueryMetric(ctx context.Context, q MetricQuery) ([]contract.ToolResult, error) {
-	sql := fmt.Sprintf("SELECT * FROM \"%s\" WHERE service = '%s'", q.Stream, q.Service)
-	if q.Metric != "" {
-		sql += fmt.Sprintf(" AND metric = '%s'", q.Metric)
-	}
-	sql += " ORDER BY timestamp DESC LIMIT 20"
+	sql := c.buildMetricSQL(q)
 
 	payload := map[string]any{
 		"query": map[string]any{
@@ -268,14 +245,26 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body []byte
 	return respBody, nil
 }
 
+// sanitize removes characters that could enable SQL injection when user input
+// is embedded in SQL strings sent to the OpenObserve _search API.
+// OpenObserve accepts SQL as a plain string over HTTP with no parameterized
+// query support, so we strip dangerous characters instead.
+func sanitize(s string) string {
+	s = strings.ReplaceAll(s, "'", "")
+	s = strings.ReplaceAll(s, `"`, "")
+	s = strings.ReplaceAll(s, "\\", "")
+	s = strings.ReplaceAll(s, ";", "")
+	return s
+}
+
 func (c *Client) buildLogSQL(q LogQuery) string {
-	sql := fmt.Sprintf("SELECT * FROM \"%s\"", q.Stream)
+	sql := fmt.Sprintf("SELECT * FROM \"%s\"", sanitize(q.Stream))
 	var conditions []string
 	if q.Service != "" {
-		conditions = append(conditions, fmt.Sprintf("service = '%s'", q.Service))
+		conditions = append(conditions, fmt.Sprintf("service = '%s'", sanitize(q.Service)))
 	}
 	for _, kw := range q.Keywords {
-		conditions = append(conditions, fmt.Sprintf("log LIKE '%%%s%%'", kw))
+		conditions = append(conditions, fmt.Sprintf("log LIKE '%%%s%%'", sanitize(kw)))
 	}
 	if len(conditions) > 0 {
 		sql += " WHERE " + conditions[0]
@@ -287,6 +276,41 @@ func (c *Client) buildLogSQL(q LogQuery) string {
 	if q.Limit > 0 {
 		sql += fmt.Sprintf(" LIMIT %d", q.Limit)
 	}
+	return sql
+}
+
+// buildTraceSQL constructs the SQL query for trace searches with sanitized inputs.
+func (c *Client) buildTraceSQL(q TraceQuery) string {
+	sql := fmt.Sprintf("SELECT * FROM \"%s\"", sanitize(q.Stream))
+	var conditions []string
+	if q.TraceID != "" {
+		conditions = append(conditions, fmt.Sprintf("trace_id = '%s'", sanitize(q.TraceID)))
+	}
+	if q.Service != "" {
+		conditions = append(conditions, fmt.Sprintf("service_name = '%s'", sanitize(q.Service)))
+	}
+	for i, cond := range conditions {
+		if i == 0 {
+			sql += " WHERE "
+		} else {
+			sql += " AND "
+		}
+		sql += cond
+	}
+	sql += " ORDER BY duration DESC"
+	if q.Limit > 0 {
+		sql += fmt.Sprintf(" LIMIT %d", q.Limit)
+	}
+	return sql
+}
+
+// buildMetricSQL constructs the SQL query for metric searches with sanitized inputs.
+func (c *Client) buildMetricSQL(q MetricQuery) string {
+	sql := fmt.Sprintf("SELECT * FROM \"%s\" WHERE service = '%s'", sanitize(q.Stream), sanitize(q.Service))
+	if q.Metric != "" {
+		sql += fmt.Sprintf(" AND metric = '%s'", sanitize(q.Metric))
+	}
+	sql += " ORDER BY timestamp DESC LIMIT 20"
 	return sql
 }
 

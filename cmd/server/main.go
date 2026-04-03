@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/atlanssia/aisre/internal/adapter/openobserve"
 	"github.com/atlanssia/aisre/internal/analysis"
 	"github.com/atlanssia/aisre/internal/api"
 	"github.com/atlanssia/aisre/internal/incident"
 	"github.com/atlanssia/aisre/internal/store"
+	"github.com/atlanssia/aisre/internal/tool"
 	"github.com/spf13/viper"
 
 	_ "modernc.org/sqlite"
@@ -73,16 +75,46 @@ func run(configPath string) error {
 	}
 	llmClient := analysis.NewLLMClient(llmCfg)
 
+	// OO Adapter
+	ooCfg := openobserve.Config{
+		BaseURL:  viper.GetString("adapters.openobserve.base_url"),
+		OrgID:    viper.GetString("adapters.openobserve.org_id"),
+		Token:    viper.GetString("adapters.openobserve.token"),
+		Username: viper.GetString("adapters.openobserve.username"),
+		Password: viper.GetString("adapters.openobserve.password"),
+	}
+
+	// Tool Orchestrator — wire OO adapter into tools
+	var orchestrator *tool.Orchestrator
+	ooClient, err := openobserve.NewClient(ooCfg, slog.Default())
+	if err != nil {
+		slog.Warn("OO adapter not available, running without tool evidence", "error", err)
+	} else {
+		stream := viper.GetString("adapters.openobserve.stream")
+		if stream == "" {
+			stream = "default"
+		}
+		tools := []tool.Tool{
+			tool.NewLogsTool(tool.LogsToolConfig{Provider: ooClient, Stream: stream}),
+			tool.NewTraceTool(tool.TraceToolConfig{Provider: ooClient, Stream: stream}),
+			tool.NewMetricsTool(tool.MetricsToolConfig{Provider: ooClient, Stream: stream}),
+		}
+		orchestrator = tool.NewOrchestrator(tools, slog.Default())
+		slog.Info("OO adapter wired", "base_url", ooCfg.BaseURL, "stream", stream)
+	}
+
 	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
 		LLMClient:    llmClient,
 		IncidentRepo: incidentRepo,
 		ReportRepo:   reportRepo,
 		EvidenceRepo: evidenceRepo,
+		Orchestrator: orchestrator,
 		Logger:       slog.Default(),
 	})
 
 	// HTTP Server
-	router := api.NewRouterFull(incidentSvc, rcaSvc, feedbackRepo, reportRepo)
+	staticFS := getStaticFS()
+	router := api.NewRouterFull(incidentSvc, rcaSvc, feedbackRepo, reportRepo, staticFS)
 	addr := fmt.Sprintf("%s:%d",
 		viper.GetString("server.host"),
 		viper.GetInt("server.port"),

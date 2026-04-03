@@ -32,6 +32,8 @@ adapters:
     base_url: "http://localhost:5080"
     org_id: "default"
     token: "${OO_TOKEN}"
+    username: "root@example.com"
+    password: "Complexpass#123"
 
 log:
   level: "debug"

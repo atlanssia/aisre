@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"io/fs"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -37,11 +38,12 @@ func NewRouterWithAnalysis(svc IncidentService, analysisSvc AnalysisService) htt
 
 // NewRouterWithFeedback creates a router with incident, analysis, and feedback endpoints.
 func NewRouterWithFeedback(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo) http.Handler {
-	return NewRouterFull(svc, analysisSvc, feedbackRepo, nil)
+	return NewRouterFull(svc, analysisSvc, feedbackRepo, nil, nil)
 }
 
 // NewRouterFull creates a router with all endpoints including report search.
-func NewRouterFull(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo) http.Handler {
+// staticFS is optional; if non-nil, SPA static files will be served for non-API routes.
+func NewRouterFull(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, staticFS fs.FS) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.Logger)
@@ -70,6 +72,17 @@ func NewRouterFull(svc IncidentService, analysisSvc AnalysisService, feedbackRep
 	})
 
 	r.Get("/health", h.health)
+
+	// Serve SPA static files if a filesystem is provided
+	if staticFS != nil {
+		spa, err := NewSPAHandler(staticFS)
+		if err == nil {
+			// Serve static assets directly
+			r.Handle("/assets/*", http.FileServerFS(staticFS))
+			// SPA fallback for all other non-API routes
+			r.NotFound(spa.ServeHTTP)
+		}
+	}
 
 	return r
 }

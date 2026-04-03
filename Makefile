@@ -1,8 +1,19 @@
-.PHONY: build test test-contract test-api test-e2e lint clean
+.PHONY: build build-release test test-contract test-api test-e2e lint clean dev frontend
 
-# Build the server binary
+# Build the server binary (dev mode, serves frontend from ../../web/dist)
 build:
 	go build -o bin/aisre ./cmd/server
+
+# Build frontend assets
+frontend:
+	cd web && npm install && npm run build
+
+# Build release binary with embedded frontend (single binary deployment)
+build-release: frontend
+	rm -rf cmd/server/static
+	cp -r web/dist cmd/server/static
+	go build -tags release -o bin/aisre ./cmd/server
+	rm -rf cmd/server/static
 
 # Run all tests
 test:
@@ -47,8 +58,8 @@ lint:
 
 # Clean build artifacts
 clean:
-	rm -rf bin/ data/
+	rm -rf bin/ data/ cmd/server/static/
 
-# Run development server
+# Run development server (dev mode, no embed)
 dev: build
 	./bin/aisre --config configs/local.yaml

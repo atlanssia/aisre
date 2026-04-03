@@ -39,7 +39,7 @@ func setupAPIWithFeedback(t *testing.T) http.Handler {
 		evidenceRepo: store.NewEvidenceRepo(db),
 	}
 	feedbackRepo := store.NewFeedbackRepo(db)
-	return NewRouterFull(incSvc, analysisSvc, feedbackRepo, reportRepo)
+	return NewRouterFull(incSvc, analysisSvc, feedbackRepo, reportRepo, nil)
 }
 
 // createIncidentAndReport is a test helper that creates an incident, analyzes it,

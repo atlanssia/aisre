@@ -65,7 +65,7 @@ func setupFullServer(t *testing.T) (http.Handler, *httptest.Server) {
 		Logger:       slog.Default(),
 	})
 
-	router := api.NewRouterFull(incidentSvc, rcaSvc, feedbackRepo, reportRepo)
+	router := api.NewRouterFull(incidentSvc, rcaSvc, feedbackRepo, reportRepo, nil)
 
 	return router, mockLLM
 }
