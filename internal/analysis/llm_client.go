@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -123,7 +124,7 @@ func (c *LLMClient) Complete(ctx context.Context, messages []Message) (*LLMRespo
 		return nil, fmt.Errorf("llm_client: marshal request: %w", err)
 	}
 
-	url := c.cfg.BaseURL + "/v1/chat/completions"
+	url := strings.TrimRight(c.cfg.BaseURL, "/") + "/chat/completions"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("llm_client: create request: %w", err)
