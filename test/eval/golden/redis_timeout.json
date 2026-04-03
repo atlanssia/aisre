@@ -1,0 +1,85 @@
+{
+  "case_file": "redis_timeout.json",
+  "expected_rca": "Redis connection timeout caused by max-pool exhaustion under high traffic load",
+  "category": "redis_timeout",
+  "incident": {
+    "source": "prometheus",
+    "service_name": "api-gateway",
+    "severity": "critical",
+    "status": "open",
+    "trace_id": "trace-redis-timeout-001",
+    "created_at": "2025-01-15T10:00:00Z"
+  },
+  "evidence": [
+    {
+      "id": "ev_001",
+      "type": "metric",
+      "name": "redis_latency",
+      "score": 0.95,
+      "summary": "Redis GET latency P99 spiked from 2ms to 8500ms starting at 09:45 UTC",
+      "source_url": "http://oo:5080/web/metrics?query=redis_latency_p99",
+      "payload": {
+        "metric": "redis_latency_p99_ms",
+        "baseline_ms": 2,
+        "peak_ms": 8500,
+        "threshold_ms": 100
+      }
+    },
+    {
+      "id": "ev_002",
+      "type": "log",
+      "name": "error_logs",
+      "score": 0.88,
+      "summary": "312 'connection pool exhausted' errors from api-gateway in last 15 minutes",
+      "source_url": "http://oo:5080/web/logs?query=connection+pool+exhausted",
+      "payload": {
+        "count": 312,
+        "error_pattern": "connection pool exhausted",
+        "service": "api-gateway"
+      }
+    },
+    {
+      "id": "ev_003",
+      "type": "trace",
+      "name": "slow_traces",
+      "score": 0.82,
+      "summary": "85% of /api/v2/orders traces show >5s duration on Redis calls",
+      "source_url": "http://oo:5080/web/traces?service=api-gateway&operation=redis_get",
+      "payload": {
+        "slow_trace_pct": 85,
+        "affected_endpoint": "/api/v2/orders",
+        "avg_duration_ms": 5200
+      }
+    }
+  ],
+  "timeline": [
+    {
+      "time": "2025-01-15T09:30:00Z",
+      "type": "deploy",
+      "service": "api-gateway",
+      "description": "Deployment v3.2.1 rolled out with increased Redis pool config",
+      "severity": "info"
+    },
+    {
+      "time": "2025-01-15T09:45:00Z",
+      "type": "symptom",
+      "service": "api-gateway",
+      "description": "Redis latency P99 starts climbing from 2ms baseline",
+      "severity": "warning"
+    },
+    {
+      "time": "2025-01-15T09:55:00Z",
+      "type": "error",
+      "service": "api-gateway",
+      "description": "Connection pool exhausted errors begin appearing in logs",
+      "severity": "error"
+    },
+    {
+      "time": "2025-01-15T10:00:00Z",
+      "type": "alert",
+      "service": "api-gateway",
+      "description": "PagerDuty alert triggered: API-Gateway High Error Rate",
+      "severity": "critical"
+    }
+  ]
+}

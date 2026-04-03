@@ -1,0 +1,106 @@
+{
+  "case_file": "high_error_rate.json",
+  "expected_rca": "Deployment v2.3.1 introduced a breaking API change causing 5xx errors across payment-service",
+  "category": "high_error_rate",
+  "incident": {
+    "source": "pagerduty",
+    "service_name": "payment-service",
+    "severity": "critical",
+    "status": "open",
+    "trace_id": "trace-high-err-003",
+    "created_at": "2025-02-01T06:00:00Z"
+  },
+  "evidence": [
+    {
+      "id": "ev_001",
+      "type": "metric",
+      "name": "error_rate",
+      "score": 0.96,
+      "summary": "Payment service 5xx rate jumped from 0.1% to 45% starting at 05:50 UTC",
+      "source_url": "http://oo:5080/web/metrics?query=payment_5xx_rate",
+      "payload": {
+        "metric": "http_5xx_rate_percent",
+        "baseline_pct": 0.1,
+        "peak_pct": 45,
+        "service": "payment-service"
+      }
+    },
+    {
+      "id": "ev_002",
+      "type": "change",
+      "name": "deployment",
+      "score": 0.91,
+      "summary": "payment-service v2.3.1 deployed 10 minutes before error spike — changed /charge response schema",
+      "source_url": "http://oo:5080/web/logs?query=deploy+payment",
+      "payload": {
+        "version": "v2.3.1",
+        "deploy_time": "2025-02-01T05:40:00Z",
+        "change": "response_schema_v2",
+        "breaking_change": true
+      }
+    },
+    {
+      "id": "ev_003",
+      "type": "log",
+      "name": "stack_traces",
+      "score": 0.87,
+      "summary": "428 'json: cannot unmarshal' errors from payment-service /charge endpoint",
+      "source_url": "http://oo:5080/web/logs?query=json+unmarshal+payment",
+      "payload": {
+        "error_count": 428,
+        "error_pattern": "json: cannot unmarshal",
+        "endpoint": "/api/v1/charge"
+      }
+    },
+    {
+      "id": "ev_004",
+      "type": "trace",
+      "name": "failed_traces",
+      "score": 0.80,
+      "summary": "98% of failed traces show 500 in payment-service internal call to /validate",
+      "source_url": "http://oo:5080/web/traces?service=payment-service&status=error",
+      "payload": {
+        "failure_pct": 98,
+        "failing_operation": "/api/internal/validate",
+        "error_code": 500
+      }
+    }
+  ],
+  "timeline": [
+    {
+      "time": "2025-02-01T05:40:00Z",
+      "type": "deploy",
+      "service": "payment-service",
+      "description": "payment-service v2.3.1 deployed with response schema change",
+      "severity": "info"
+    },
+    {
+      "time": "2025-02-01T05:50:00Z",
+      "type": "error",
+      "service": "payment-service",
+      "description": "JSON unmarshal errors begin appearing on /charge endpoint",
+      "severity": "error"
+    },
+    {
+      "time": "2025-02-01T05:55:00Z",
+      "type": "symptom",
+      "service": "order-service",
+      "description": "Order service starts failing when calling payment /validate",
+      "severity": "warning"
+    },
+    {
+      "time": "2025-02-01T06:00:00Z",
+      "type": "alert",
+      "service": "payment-service",
+      "description": "PagerDuty: Payment Service Critical Error Rate",
+      "severity": "critical"
+    },
+    {
+      "time": "2025-02-01T06:05:00Z",
+      "type": "action",
+      "service": "platform-team",
+      "description": "Runbook: Rollback payment-service to v2.3.0",
+      "severity": "info"
+    }
+  ]
+}

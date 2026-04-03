@@ -1,0 +1,22 @@
+{
+  "name": "aisre-phase1-golden",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "case_file": "redis_timeout.json",
+      "expected_rca": "Redis connection timeout caused by max-pool exhaustion under high traffic load",
+      "category": "redis_timeout"
+    },
+    {
+      "case_file": "db_connection_leak.json",
+      "expected_rca": "Database connection leak in auth module due to missing defer close in error path",
+      "category": "db_connection_leak"
+    },
+    {
+      "case_file": "high_error_rate.json",
+      "expected_rca": "Deployment v2.3.1 introduced a breaking API change causing 5xx errors across payment-service",
+      "category": "high_error_rate"
+    }
+  ],
+  "created_at": "2026-04-03T00:00:00Z"
+}

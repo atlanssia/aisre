@@ -1,0 +1,87 @@
+{
+  "case_file": "db_connection_leak.json",
+  "expected_rca": "Database connection leak in auth module due to missing defer close in error path",
+  "category": "db_connection_leak",
+  "incident": {
+    "source": "grafana",
+    "service_name": "auth-service",
+    "severity": "high",
+    "status": "open",
+    "trace_id": "trace-db-leak-002",
+    "created_at": "2025-01-20T14:00:00Z"
+  },
+  "evidence": [
+    {
+      "id": "ev_001",
+      "type": "metric",
+      "name": "db_connections",
+      "score": 0.92,
+      "summary": "Active DB connections steadily growing from 20 baseline to 180 over 6 hours",
+      "source_url": "http://oo:5080/web/metrics?query=db_active_connections",
+      "payload": {
+        "metric": "db_active_connections",
+        "baseline": 20,
+        "current": 180,
+        "max_pool": 200,
+        "growth_rate_per_hour": 27
+      }
+    },
+    {
+      "id": "ev_002",
+      "type": "log",
+      "name": "auth_errors",
+      "score": 0.85,
+      "summary": "Increasing 'too many connections' errors from auth-service login endpoint",
+      "source_url": "http://oo:5080/web/logs?query=too+many+connections+auth",
+      "payload": {
+        "error_count_1h": 45,
+        "endpoint": "/api/v1/auth/login",
+        "error_pattern": "too many connections"
+      }
+    },
+    {
+      "id": "ev_003",
+      "type": "change",
+      "name": "recent_deploy",
+      "score": 0.78,
+      "summary": "auth-service v1.8.0 deployed 6 hours ago — PR #342 added new OAuth flow",
+      "source_url": "http://oo:5080/web/logs?query=deploy+auth-service",
+      "payload": {
+        "version": "v1.8.0",
+        "pr": 342,
+        "change_type": "new_oauth_flow",
+        "deployed_at": "2025-01-20T08:00:00Z"
+      }
+    }
+  ],
+  "timeline": [
+    {
+      "time": "2025-01-20T08:00:00Z",
+      "type": "deploy",
+      "service": "auth-service",
+      "description": "auth-service v1.8.0 deployed with new OAuth flow (PR #342)",
+      "severity": "info"
+    },
+    {
+      "time": "2025-01-20T10:00:00Z",
+      "type": "symptom",
+      "service": "auth-service",
+      "description": "DB connection count starts growing above baseline (20 -> 75)",
+      "severity": "warning"
+    },
+    {
+      "time": "2025-01-20T13:00:00Z",
+      "type": "error",
+      "service": "auth-service",
+      "description": "First 'too many connections' errors on login endpoint",
+      "severity": "error"
+    },
+    {
+      "time": "2025-01-20T14:00:00Z",
+      "type": "alert",
+      "service": "auth-service",
+      "description": "Grafana alert: auth-service DB connection pool at 90% capacity",
+      "severity": "critical"
+    }
+  ]
+}

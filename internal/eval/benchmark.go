@@ -4,7 +4,7 @@ package eval
 type BenchmarkCase struct {
 	CaseFile    string `json:"case_file"`
 	ExpectedRCA string `json:"expected_rca"`
-	Category    string `json:"category"` // redis_timeout, db_leak, etc.
+	Category    string `json:"category"` // redis_timeout, db_connection_leak, high_error_rate, etc.
 }
 
 // BenchmarkSuite is a collection of golden cases to run.
