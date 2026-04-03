@@ -32,7 +32,7 @@ func newMockLLMServer() *httptest.Server {
 			return
 		}
 
-		if r.URL.Path != "/v1/chat/completions" {
+		if r.URL.Path != "/chat/completions" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
