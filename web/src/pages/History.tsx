@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { reports } from '@/api/client'
-import { Search, FileText, ExternalLink } from 'lucide-react'
+import { Search, FileText, ExternalLink, FolderOpen } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { Spinner } from '@/components/Spinner'
+import { useToast } from '@/components/Toast'
 import type { RCAReport } from '@/types'
 
 export function History() {
   const [query, setQuery] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const { showToast } = useToast()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['reports', 'search', searchTerm],
@@ -16,6 +19,12 @@ export function History() {
   })
 
   const items: RCAReport[] = data ?? []
+
+  useEffect(() => {
+    if (error) {
+      showToast('error', `Search failed: ${error.message}`)
+    }
+  }, [error, showToast])
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -61,17 +70,28 @@ export function History() {
             <p>Enter a search term to find RCA reports</p>
           </div>
         ) : isLoading ? (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            Searching...
+          <div className="flex items-center justify-center gap-2 h-64 text-muted-foreground">
+            <Spinner size="md" />
+            <span>Searching...</span>
           </div>
         ) : error ? (
-          <div className="flex items-center justify-center h-64 text-destructive">
-            Search failed: {error.message}
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
+            <Search className="h-8 w-8 text-red-400 opacity-60" />
+            <p className="text-sm">Search failed</p>
+            <button
+              onClick={() => setSearchTerm(query)}
+              className="text-xs text-ring hover:underline"
+            >
+              Try again
+            </button>
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <FileText className="h-8 w-8 mb-2 opacity-50" />
-            <p>No reports found matching &quot;{searchTerm}&quot;</p>
+            <FolderOpen className="h-10 w-10 mb-3 opacity-40" />
+            <p className="text-sm font-medium">No reports found</p>
+            <p className="text-xs mt-1 opacity-60">
+              No reports matching &quot;{searchTerm}&quot;
+            </p>
           </div>
         ) : (
           <div className="space-y-2">

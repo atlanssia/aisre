@@ -1,12 +1,16 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Clock, Server, ChevronRight, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Clock, Server, ChevronRight, RefreshCw, Inbox } from 'lucide-react'
 import { incidents } from '@/api/client'
 import { SeverityBadge } from '@/components/rca/SeverityBadge'
 import { StatusBadge } from '@/components/rca/StatusBadge'
+import { Spinner } from '@/components/Spinner'
+import { useToast } from '@/components/Toast'
 import { cn } from '@/lib/utils'
 import type { Incident } from '@/types'
 
 export function AlertWorkbench() {
+  const { showToast } = useToast()
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['incidents'],
     queryFn: () => incidents.list({ limit: 50 }),
@@ -14,6 +18,12 @@ export function AlertWorkbench() {
   })
 
   const items = data ?? []
+
+  useEffect(() => {
+    if (error) {
+      showToast('error', `Failed to load incidents: ${error.message}`)
+    }
+  }, [error, showToast])
 
   return (
     <div className="flex flex-col h-full">
@@ -64,17 +74,26 @@ export function AlertWorkbench() {
       {/* Incident Table */}
       <div className="flex-1 overflow-auto px-6 py-3">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            Loading incidents...
+          <div className="flex items-center justify-center gap-2 h-64 text-muted-foreground">
+            <Spinner size="md" />
+            <span>Loading incidents...</span>
           </div>
         ) : error ? (
-          <div className="flex items-center justify-center h-64 text-destructive">
-            Failed to load incidents: {error.message}
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
+            <AlertTriangle className="h-8 w-8 text-red-400 opacity-60" />
+            <p className="text-sm">Failed to load incidents</p>
+            <button
+              onClick={() => refetch()}
+              className="text-xs text-ring hover:underline"
+            >
+              Try again
+            </button>
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <AlertTriangle className="h-8 w-8 mb-2 opacity-50" />
-            <p>No active incidents. You can go back to sleep.</p>
+            <Inbox className="h-10 w-10 mb-3 opacity-40" />
+            <p className="text-sm font-medium">No incidents yet</p>
+            <p className="text-xs mt-1 opacity-60">Incidents will appear here when alerts are received</p>
           </div>
         ) : (
           <div className="space-y-1">

@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { reports, feedback } from '@/api/client'
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { Spinner } from '@/components/Spinner'
+import { useToast } from '@/components/Toast'
 import type { FeedbackRequest } from '@/types'
 
 export function RCAReport() {
   const { id } = useParams<{ id: string }>()
   const reportId = Number(id)
+  const { showToast } = useToast()
 
   const { data: report, isLoading, error } = useQuery({
     queryKey: ['report', reportId],
@@ -16,18 +19,32 @@ export function RCAReport() {
     enabled: !!reportId,
   })
 
+  useEffect(() => {
+    if (error) {
+      showToast('error', `Failed to load report: ${error.message}`)
+    }
+  }, [error, showToast])
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        Loading RCA report...
+      <div className="flex items-center justify-center gap-2 h-full text-muted-foreground">
+        <Spinner size="md" />
+        <span>Loading RCA report...</span>
       </div>
     )
   }
 
   if (error || !report) {
     return (
-      <div className="flex items-center justify-center h-full text-destructive">
-        Failed to load report: {error?.message}
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+        <AlertTriangle className="h-8 w-8 text-red-400 opacity-60" />
+        <p className="text-sm">Failed to load report</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="text-xs text-ring hover:underline"
+        >
+          Try again
+        </button>
       </div>
     )
   }
@@ -142,6 +159,7 @@ export function RCAReport() {
 function FeedbackSection({ reportId }: { reportId: number }) {
   const queryClient = useQueryClient()
   const [submitted, setSubmitted] = useState(false)
+  const { showToast } = useToast()
 
   const mutation = useMutation({
     mutationFn: (action: FeedbackRequest['action_taken']) =>
@@ -154,6 +172,10 @@ function FeedbackSection({ reportId }: { reportId: number }) {
     onSuccess: () => {
       setSubmitted(true)
       queryClient.invalidateQueries({ queryKey: ['report', reportId] })
+      showToast('success', 'Feedback submitted successfully')
+    },
+    onError: (err) => {
+      showToast('error', `Failed to submit feedback: ${err.message}`)
     },
   })
 
@@ -179,7 +201,7 @@ function FeedbackSection({ reportId }: { reportId: number }) {
           disabled={mutation.isPending}
           className="flex items-center gap-2 px-4 py-2 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-sm hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
         >
-          <CheckCircle2 className="h-4 w-4" />
+          {mutation.isPending ? <Spinner size="sm" /> : <CheckCircle2 className="h-4 w-4" />}
           Accepted
         </button>
         <button
@@ -187,7 +209,7 @@ function FeedbackSection({ reportId }: { reportId: number }) {
           disabled={mutation.isPending}
           className="flex items-center gap-2 px-4 py-2 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 text-sm hover:bg-amber-500/25 transition-colors disabled:opacity-50"
         >
-          <AlertTriangle className="h-4 w-4" />
+          {mutation.isPending ? <Spinner size="sm" /> : <AlertTriangle className="h-4 w-4" />}
           Partial
         </button>
         <button
@@ -195,13 +217,10 @@ function FeedbackSection({ reportId }: { reportId: number }) {
           disabled={mutation.isPending}
           className="flex items-center gap-2 px-4 py-2 rounded-md bg-red-500/15 text-red-400 border border-red-500/30 text-sm hover:bg-red-500/25 transition-colors disabled:opacity-50"
         >
-          <XCircle className="h-4 w-4" />
+          {mutation.isPending ? <Spinner size="sm" /> : <XCircle className="h-4 w-4" />}
           Rejected
         </button>
       </div>
-      {mutation.isError && (
-        <p className="text-xs text-destructive mt-2">Failed to submit feedback: {mutation.error.message}</p>
-      )}
     </div>
   )
 }
