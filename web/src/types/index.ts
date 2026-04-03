@@ -57,16 +57,36 @@ export interface EvidenceItem {
 export interface FeedbackRequest {
   rating: number
   comment: string
+  user_id: string
   action_taken: 'accepted' | 'partial' | 'rejected'
 }
 
 export interface FeedbackResponse {
   id: number
   report_id: number
-  status: string
+  rating: number
+  comment: string
+  user_id: string
+  action_taken: string
+  created_at: string
 }
 
 export interface ApiError {
   error: string
   code: string
+}
+
+export interface SSEEvent {
+  event: string
+  data: unknown
+}
+
+export interface AnalysisProgressEvent {
+  percent: number
+  phase: string
+}
+
+export interface AnalysisStatusEvent {
+  message: string
+  phase: string
 }

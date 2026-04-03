@@ -73,6 +73,17 @@ export const reports = {
       method: 'POST',
     }),
 
+  analyzeStream: (incidentId: number, onEvent: (event: MessageEvent) => void): EventSource => {
+    const es = new EventSource(`${API_BASE}/incidents/${incidentId}/analyze/stream`)
+    es.onmessage = onEvent
+    es.addEventListener('status', onEvent as EventListener)
+    es.addEventListener('progress', onEvent as EventListener)
+    es.addEventListener('evidence', onEvent as EventListener)
+    es.addEventListener('complete', onEvent as EventListener)
+    es.addEventListener('error', onEvent as EventListener)
+    return es
+  },
+
   search: (params: { q?: string; service?: string; severity?: string; date_range?: string }) => {
     const qs = new URLSearchParams()
     Object.entries(params).forEach(([k, v]) => { if (v) qs.set(k, v) })
