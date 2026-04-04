@@ -52,3 +52,7 @@ features:
     enabled: false
   topology:
     enabled: false
+  prompt_studio:
+    enabled: false
+  alert_aggregation:
+    enabled: false

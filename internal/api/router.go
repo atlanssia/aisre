@@ -70,13 +70,18 @@ func NewRouterFullWithTopology(svc IncidentService, analysisSvc AnalysisService,
 
 // NewRouterFullWithPromptStudio creates a router with all endpoints including prompt studio.
 func NewRouterFullWithPromptStudio(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, topoSvc TopologyService, promptStudioSvc PromptStudioService, staticFS fs.FS) http.Handler {
+	return NewRouterFullWithAlertGroup(svc, analysisSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, promptStudioSvc, nil, staticFS)
+}
+
+// NewRouterFullWithAlertGroup creates a router with all endpoints including alert aggregation.
+func NewRouterFullWithAlertGroup(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, topoSvc TopologyService, promptStudioSvc PromptStudioService, alertGroupSvc AlertGroupService, staticFS fs.FS) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RequestID)
 
-	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc, topoSvc: topoSvc, promptStudioSvc: promptStudioSvc}
+	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc, topoSvc: topoSvc, promptStudioSvc: promptStudioSvc, alertGroupSvc: alertGroupSvc}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// SSE route — no contentTypeJSON middleware
@@ -124,6 +129,14 @@ func NewRouterFullWithPromptStudio(svc IncidentService, analysisSvc AnalysisServ
 				r.Put("/prompts/{id}", h.updatePromptTemplate)
 				r.Post("/prompts/{id}/test", h.dryRunPromptTemplate)
 			}
+
+			// Alert Group routes (feature-flagged)
+			if h.alertGroupSvc != nil {
+				r.Post("/alerts", h.ingestAlert)
+				r.Get("/alert-groups", h.listAlertGroups)
+				r.Get("/alert-groups/{id}", h.getAlertGroup)
+				r.Post("/alert-groups/{id}/escalate", h.escalateAlertGroup)
+			}
 		})
 	})
 
@@ -144,14 +157,15 @@ func NewRouterFullWithPromptStudio(svc IncidentService, analysisSvc AnalysisServ
 }
 
 type handler struct {
-	svc          IncidentService
-	analysisSvc  AnalysisService
-	feedbackRepo store.FeedbackRepo
-	reportRepo   store.ReportRepo
+	svc             IncidentService
+	analysisSvc     AnalysisService
+	feedbackRepo    store.FeedbackRepo
+	reportRepo      store.ReportRepo
 	similarSvc      SimilarService
 	changeSvc       ChangeService
 	topoSvc         TopologyService
 	promptStudioSvc PromptStudioService
+	alertGroupSvc   AlertGroupService
 }
 
 func contentTypeJSON(next http.Handler) http.Handler {

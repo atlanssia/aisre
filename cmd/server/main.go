@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/atlanssia/aisre/internal/adapter/openobserve"
+	"github.com/atlanssia/aisre/internal/alertgroup"
 	"github.com/atlanssia/aisre/internal/analysis"
 	"github.com/atlanssia/aisre/internal/api"
 	"github.com/atlanssia/aisre/internal/change"
@@ -157,6 +158,14 @@ func run(configPath string) error {
 		slog.Info("prompt studio feature enabled")
 	}
 
+	// Alert Aggregation Service (Phase 2, feature-flagged)
+	var alertGroupSvc *alertgroup.Service
+	if viper.GetBool("features.alert_aggregation.enabled") {
+		alertGroupRepo := store.NewAlertGroupRepo(db)
+		alertGroupSvc = alertgroup.NewService(alertGroupRepo, incidentSvc)
+		slog.Info("alert aggregation feature enabled")
+	}
+
 	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
 		LLMClient:      llmClient,
 		IncidentRepo:   incidentRepo,
@@ -171,7 +180,7 @@ func run(configPath string) error {
 
 	// HTTP Server
 	staticFS := getStaticFS()
-	router := api.NewRouterFullWithPromptStudio(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, promptStudioSvc, staticFS)
+	router := api.NewRouterFullWithAlertGroup(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, promptStudioSvc, alertGroupSvc, staticFS)
 	addr := fmt.Sprintf("%s:%d",
 		viper.GetString("server.host"),
 		viper.GetInt("server.port"),
