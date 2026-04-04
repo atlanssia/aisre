@@ -11,6 +11,11 @@ import (
 	"github.com/atlanssia/aisre/internal/store"
 )
 
+// ChangeFinder fetches change events for correlation (defined in consuming package per CLAUDE.md).
+type ChangeFinder interface {
+	GetChangesForIncident(ctx context.Context, incidentID int64) (*contract.ChangeCorrelation, error)
+}
+
 // Service correlates change events with incidents.
 type Service struct {
 	changeRepo store.ChangeRepo

@@ -146,6 +146,7 @@ func run(configPath string) error {
 		EvidenceRepo:  evidenceRepo,
 		Orchestrator:  orchestrator,
 		SimilarFinder: similarSvc,
+		ChangeFinder:  changeSvc,
 		Logger:        slog.Default(),
 	})
 

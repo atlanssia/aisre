@@ -23,6 +23,11 @@ type SimilarFinder interface {
 	FindSimilar(ctx context.Context, incidentID int64, topK int, threshold float64) ([]contract.SimilarResult, error)
 }
 
+// ChangeFinder fetches change events for correlation with incidents (Phase 2).
+type ChangeFinder interface {
+	GetChangesForIncident(ctx context.Context, incidentID int64) (*contract.ChangeCorrelation, error)
+}
+
 // Service defines the core analysis engine interface.
 type Service interface {
 	// AnalyzeIncident runs the full RCA pipeline for a given incident.
@@ -38,6 +43,7 @@ type RCAServiceConfig struct {
 	EvidenceRepo  store.EvidenceRepo
 	Orchestrator  ToolOrchestrator // optional — if nil, AnalyzeIncident runs with no evidence
 	SimilarFinder SimilarFinder   // optional — if nil, no similar incidents injected (Phase 2)
+	ChangeFinder  ChangeFinder    // optional — if nil, no change correlation (Phase 2)
 	Logger        *slog.Logger
 }
 
@@ -50,6 +56,7 @@ type RCAService struct {
 	evidence      store.EvidenceRepo
 	orchestrator  ToolOrchestrator
 	similarFinder SimilarFinder
+	changeFinder  ChangeFinder
 	builder       *ContextBuilder
 	ranker        *EvidenceRanker
 	logger        *slog.Logger
@@ -67,6 +74,7 @@ func NewRCAService(cfg RCAServiceConfig) *RCAService {
 		evidence:      cfg.EvidenceRepo,
 		orchestrator:  cfg.Orchestrator,
 		similarFinder: cfg.SimilarFinder,
+		changeFinder:  cfg.ChangeFinder,
 		builder:       NewContextBuilder(),
 		ranker:        NewEvidenceRanker(),
 		logger:        cfg.Logger,
@@ -211,6 +219,28 @@ func (s *RCAService) analyze(ctx context.Context, incident *contract.Incident, t
 		for i, r := range similarRCA {
 			rcaPrompt += fmt.Sprintf("\n### Similar Incident %d\n- **Summary:** %s\n- **Root Cause:** %s\n",
 				i+1, r.Summary, r.RootCause)
+		}
+	}
+
+	// Append change correlation if available (Phase 2)
+	if s.changeFinder != nil {
+		changeCorr, err := s.changeFinder.GetChangesForIncident(ctx, incident.ID)
+		if err == nil && changeCorr != nil && len(changeCorr.Changes) > 0 {
+			rcaPrompt += "\n\n## Recent Changes (Correlated)\n"
+			rcaPrompt += "The following change events occurred around the incident time window:\n\n"
+			for _, ch := range changeCorr.Changes {
+				rcaPrompt += fmt.Sprintf("- [%s] %s: %s (by %s) at %s\n",
+					ch.ChangeType, ch.Service, ch.Summary, ch.Author, ch.Timestamp)
+			}
+			s.logger.Info("injected change correlation into RCA prompt",
+				"incident_id", incident.ID,
+				"change_count", len(changeCorr.Changes),
+			)
+		} else if err != nil {
+			s.logger.Warn("failed to fetch change correlation, continuing without",
+				"incident_id", incident.ID,
+				"error", err,
+			)
 		}
 	}
 
