@@ -28,6 +28,11 @@ type ChangeFinder interface {
 	GetChangesForIncident(ctx context.Context, incidentID int64) (*contract.ChangeCorrelation, error)
 }
 
+// TopologyFinder computes blast radius from the service topology (Phase 2).
+type TopologyFinder interface {
+	ComputeBlastRadius(ctx context.Context, service string, depth int) ([]contract.BlastRadiusAffected, error)
+}
+
 // Service defines the core analysis engine interface.
 type Service interface {
 	// AnalyzeIncident runs the full RCA pipeline for a given incident.
@@ -43,7 +48,8 @@ type RCAServiceConfig struct {
 	EvidenceRepo  store.EvidenceRepo
 	Orchestrator  ToolOrchestrator // optional — if nil, AnalyzeIncident runs with no evidence
 	SimilarFinder SimilarFinder   // optional — if nil, no similar incidents injected (Phase 2)
-	ChangeFinder  ChangeFinder    // optional — if nil, no change correlation (Phase 2)
+	ChangeFinder   ChangeFinder    // optional — if nil, no change correlation (Phase 2)
+	TopologyFinder TopologyFinder // optional — if nil, no blast radius (Phase 2)
 	Logger        *slog.Logger
 }
 
@@ -56,7 +62,8 @@ type RCAService struct {
 	evidence      store.EvidenceRepo
 	orchestrator  ToolOrchestrator
 	similarFinder SimilarFinder
-	changeFinder  ChangeFinder
+	changeFinder   ChangeFinder
+	topologyFinder TopologyFinder
 	builder       *ContextBuilder
 	ranker        *EvidenceRanker
 	logger        *slog.Logger
@@ -74,8 +81,9 @@ func NewRCAService(cfg RCAServiceConfig) *RCAService {
 		evidence:      cfg.EvidenceRepo,
 		orchestrator:  cfg.Orchestrator,
 		similarFinder: cfg.SimilarFinder,
-		changeFinder:  cfg.ChangeFinder,
-		builder:       NewContextBuilder(),
+		changeFinder:   cfg.ChangeFinder,
+		topologyFinder: cfg.TopologyFinder,
+		builder:        NewContextBuilder(),
 		ranker:        NewEvidenceRanker(),
 		logger:        cfg.Logger,
 	}
@@ -240,6 +248,27 @@ func (s *RCAService) analyze(ctx context.Context, incident *contract.Incident, t
 			s.logger.Warn("failed to fetch change correlation, continuing without",
 				"incident_id", incident.ID,
 				"error", err,
+			)
+		}
+	}
+
+	// Append blast radius if available (Phase 2)
+	if s.topologyFinder != nil {
+		blastResult, err := s.topologyFinder.ComputeBlastRadius(ctx, incident.ServiceName, 3)
+		if err != nil {
+			s.logger.Warn("failed to compute blast radius, continuing without",
+				"incident_id", incident.ID,
+				"service", incident.ServiceName,
+				"error", err,
+			)
+		} else if len(blastResult) > 0 {
+			rcaPrompt += "\n\n## Blast Radius\nService " + incident.ServiceName + " is potentially affected:\n"
+			for _, svc := range blastResult {
+				rcaPrompt += fmt.Sprintf("- **%s** (depth %d)\n", svc.Service, svc.Depth)
+			}
+			s.logger.Info("injected blast radius into RCA prompt",
+				"incident_id", incident.ID,
+				"affected_count", len(blastResult),
 			)
 		}
 	}

@@ -149,14 +149,15 @@ func run(configPath string) error {
 	}
 
 	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
-		LLMClient:     llmClient,
-		IncidentRepo:  incidentRepo,
-		ReportRepo:    reportRepo,
-		EvidenceRepo:  evidenceRepo,
-		Orchestrator:  orchestrator,
-		SimilarFinder: similarSvc,
-		ChangeFinder:  changeSvc,
-		Logger:        slog.Default(),
+		LLMClient:      llmClient,
+		IncidentRepo:   incidentRepo,
+		ReportRepo:     reportRepo,
+		EvidenceRepo:   evidenceRepo,
+		Orchestrator:   orchestrator,
+		SimilarFinder:  similarSvc,
+		ChangeFinder:   changeSvc,
+		TopologyFinder: topoSvc,
+		Logger:         slog.Default(),
 	})
 
 	// HTTP Server

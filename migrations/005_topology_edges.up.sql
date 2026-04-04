@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS topology_edges (
     target      TEXT NOT NULL,
     relation    TEXT NOT NULL DEFAULT 'calls' CHECK(relation IN ('calls', 'depends_on', 'publishes')),
     metadata    TEXT DEFAULT '{}' CHECK(json_valid(metadata)),
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_topology_edge ON topology_edges(source, target, relation);

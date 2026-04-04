@@ -142,11 +142,12 @@ type TopologyRepo interface {
 
 // TopologyEdge is the persistent topology edge entity.
 type TopologyEdge struct {
-	ID       int64
-	Source   string
-	Target   string
-	Relation string
-	Metadata string // JSON
+	ID        int64
+	Source    string
+	Target    string
+	Relation  string
+	Metadata  string // JSON
+	CreatedAt string
 	UpdatedAt string
 }
 

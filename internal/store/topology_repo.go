@@ -17,8 +17,9 @@ func NewTopologyRepo(db *sql.DB) TopologyRepo {
 
 func (r *sqliteTopologyRepo) Create(ctx context.Context, edge *TopologyEdge) (int64, error) {
 	result, err := r.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO topology_edges (source, target, relation, metadata)
-		 VALUES (?, ?, ?, ?)`,
+		`INSERT INTO topology_edges (source, target, relation, metadata)
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT(source, target, relation) DO UPDATE SET updated_at = datetime('now'), metadata = excluded.metadata`,
 		edge.Source, edge.Target, edge.Relation, edge.Metadata,
 	)
 	if err != nil {
@@ -29,7 +30,7 @@ func (r *sqliteTopologyRepo) Create(ctx context.Context, edge *TopologyEdge) (in
 
 func (r *sqliteTopologyRepo) List(ctx context.Context) ([]TopologyEdge, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, source, target, relation, metadata, updated_at
+		`SELECT id, source, target, relation, metadata, created_at, updated_at
 		 FROM topology_edges ORDER BY source, target`,
 	)
 	if err != nil {
@@ -40,7 +41,7 @@ func (r *sqliteTopologyRepo) List(ctx context.Context) ([]TopologyEdge, error) {
 	var results []TopologyEdge
 	for rows.Next() {
 		var e TopologyEdge
-		if err := rows.Scan(&e.ID, &e.Source, &e.Target, &e.Relation, &e.Metadata, &e.UpdatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.Source, &e.Target, &e.Relation, &e.Metadata, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("topology_repo: scan: %w", err)
 		}
 		results = append(results, e)
@@ -50,7 +51,7 @@ func (r *sqliteTopologyRepo) List(ctx context.Context) ([]TopologyEdge, error) {
 
 func (r *sqliteTopologyRepo) ListBySource(ctx context.Context, source string) ([]TopologyEdge, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, source, target, relation, metadata, updated_at
+		`SELECT id, source, target, relation, metadata, created_at, updated_at
 		 FROM topology_edges WHERE source = ? ORDER BY target`,
 		source,
 	)
@@ -62,7 +63,7 @@ func (r *sqliteTopologyRepo) ListBySource(ctx context.Context, source string) ([
 	var results []TopologyEdge
 	for rows.Next() {
 		var e TopologyEdge
-		if err := rows.Scan(&e.ID, &e.Source, &e.Target, &e.Relation, &e.Metadata, &e.UpdatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.Source, &e.Target, &e.Relation, &e.Metadata, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("topology_repo: scan: %w", err)
 		}
 		results = append(results, e)
