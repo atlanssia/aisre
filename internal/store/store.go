@@ -75,6 +75,14 @@ type Feedback struct {
 	CreatedAt   string
 }
 
+// ChangeRepo defines the persistence interface for change events.
+type ChangeRepo interface {
+	Create(ctx context.Context, ch *Change) (int64, error)
+	GetByID(ctx context.Context, id int64) (*Change, error)
+	List(ctx context.Context, filter ChangeFilter) ([]Change, error)
+	ListByService(ctx context.Context, service string, startTime, endTime string) ([]Change, error)
+}
+
 // EmbeddingRepo defines the persistence interface for incident embeddings.
 type EmbeddingRepo interface {
 	Create(ctx context.Context, incidentID int64, service string, embedding []byte, model string) error
@@ -89,6 +97,28 @@ type Embedding struct {
 	Embedding  []byte
 	Model      string
 	CreatedAt  string
+}
+
+// Change is the persistent change event entity.
+type Change struct {
+	ID         int64
+	Service    string
+	ChangeType string
+	Summary    string
+	Author     string
+	Timestamp  string
+	Metadata   string // JSON
+	CreatedAt  string
+}
+
+// ChangeFilter holds filter parameters for listing changes.
+type ChangeFilter struct {
+	Service     string
+	ChangeTypes []string
+	StartTime   string
+	EndTime     string
+	Limit       int
+	Offset      int
 }
 
 // IncidentFilter holds filter parameters for listing incidents.
