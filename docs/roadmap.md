@@ -27,13 +27,13 @@
 
 **MVP 里程碑（详见 [PRD](prd.md)）：**
 
-| Milestone | Week | Scope |
-|-----------|------|-------|
-| M1 | 第1周 | Alert 接入 + Incident API |
-| M2 | 第2~3周 | OO Adapter + Logs/Trace/Metrics Tool |
-| M3 | 第4周 | RCA Prompt + 报告页 |
-| M4 | 第5周 | 历史检索 + 反馈闭环 |
-| M5 | 第6周 | 测试/UAT/上线 |
+| Milestone | Week | Scope | Status |
+|-----------|------|-------|--------|
+| M1 | 第1周 | Alert 接入 + Incident API | Done |
+| M2 | 第2~3周 | OO Adapter + Logs/Trace/Metrics Tool | Done |
+| M3 | 第4周 | RCA Prompt + 报告页 | Done |
+| M4 | 第5周 | 历史检索 + 反馈闭环 | Done |
+| M5 | 第6周 | 测试/UAT/上线 | Done |
 
 ---
 
@@ -41,14 +41,25 @@
 
 目标：提升分析深度和用户体验
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| Similar Incident | 基于 Embedding 的相似事件检索 | P0 |
-| Change Correlation | 部署变更关联分析 | P0 |
-| Blast Radius | 拓扑爆炸半径可视化 | P0 |
-| Prompt Studio | Prompt 模板管理与调试 | P1 |
-| Alert Aggregation | 智能告警聚合 | P1 |
-| Postmortem | 自动复盘文档生成 | P1 |
+| Feature | Description | Priority | Status |
+|---------|-------------|----------|--------|
+| Similar Incident | 基于 Embedding 的相似事件检索 | P0 | Done |
+| Change Correlation | 部署变更关联分析 | P0 | Done |
+| Blast Radius | 拓扑爆炸半径可视化 | P0 | Done |
+| Prompt Studio | Prompt 模板管理与调试 | P1 | Done |
+| Alert Aggregation | 智能告警聚合 | P1 | Done |
+| Postmortem | 自动复盘文档生成 | P1 | Done |
+
+**Phase 2 里程碑：**
+
+| Milestone | Week | Scope | Status |
+|-----------|------|-------|--------|
+| M6 | 第7-8周 | Similar Incident + Embedding | Done |
+| M7 | 第8-9周 | Change Correlation | Done |
+| M8 | 第9-10周 | Topology / Blast Radius | Done |
+| M9 | 第10-11周 | Prompt Studio | Done |
+| M10 | 第11-12周 | Alert Aggregation | Done |
+| M11 | 第13-14周 | Postmortem Generator | Done |
 
 ---
 
@@ -119,12 +130,17 @@
 ## 3. 里程碑时间线
 
 ```text
-Week 1      ████████  M1: Alert 接入 + Incident API
-Week 2-3    ████████  M2: OO Adapter + Logs/Trace/Metrics Tool
-Week 4      ████████  M3: RCA Prompt + 报告页
-Week 5      ████████  M4: 历史检索 + 反馈闭环
-Week 6      ████████  M5: 测试/UAT/上线
-Week 7-10   ████████  Phase 2: Similar Incident + Blast Radius
-Week 11-14  ████████  Phase 3: Multi-backend + Platform
-Week 15+    ████████  Phase 4: Auto Remediation
+Week 1      ████████  M1: Alert 接入 + Incident API (Done)
+Week 2-3    ████████  M2: OO Adapter + Logs/Trace/Metrics Tool (Done)
+Week 4      ████████  M3: RCA Prompt + 报告页 (Done)
+Week 5      ████████  M4: 历史检索 + 反馈闭环 (Done)
+Week 6      ████████  M5: 测试/UAT/上线 (Done)
+Week 7-8    ████████  M6: Similar Incident (Done)
+Week 8-9    ████████  M7: Change Correlation (Done)
+Week 9-10   ████████  M8: Topology / Blast Radius (Done)
+Week 10-11  ████████  M9: Prompt Studio (Done)
+Week 11-12  ████████  M10: Alert Aggregation (Done)
+Week 13-14  ████████  M11: Postmortem Generator (Done)
+Week 15+    ████████  Phase 3: Multi-backend + Platform
+Week 19+    ████████  Phase 4: Auto Remediation
 ```
