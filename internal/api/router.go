@@ -55,13 +55,18 @@ func NewRouterFull(svc IncidentService, analysisSvc AnalysisService, feedbackRep
 
 // NewRouterFullWithSimilar creates a router with all endpoints including similar incident search.
 func NewRouterFullWithSimilar(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, staticFS fs.FS) http.Handler {
+	return NewRouterFullWithChanges(svc, analysisSvc, feedbackRepo, reportRepo, similarSvc, nil, staticFS)
+}
+
+// NewRouterFullWithChanges creates a router with all endpoints including change correlation.
+func NewRouterFullWithChanges(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, staticFS fs.FS) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RequestID)
 
-	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc}
+	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// SSE route — no contentTypeJSON middleware
@@ -86,6 +91,13 @@ func NewRouterFullWithSimilar(svc IncidentService, analysisSvc AnalysisService, 
 				r.Get("/incidents/{id}/similar", h.getSimilar)
 				r.Post("/incidents/{id}/embed", h.computeEmbedding)
 			}
+
+			// Change correlation routes (feature-flagged)
+			if h.changeSvc != nil {
+				r.Get("/changes", h.listChanges)
+				r.Get("/incidents/{id}/changes", h.getChangesForIncident)
+				r.Post("/changes", h.ingestChange)
+			}
 		})
 	})
 
@@ -106,11 +118,12 @@ func NewRouterFullWithSimilar(svc IncidentService, analysisSvc AnalysisService, 
 }
 
 type handler struct {
-	svc         IncidentService
-	analysisSvc AnalysisService
+	svc          IncidentService
+	analysisSvc  AnalysisService
 	feedbackRepo store.FeedbackRepo
 	reportRepo   store.ReportRepo
 	similarSvc   SimilarService
+	changeSvc    ChangeService
 }
 
 func contentTypeJSON(next http.Handler) http.Handler {

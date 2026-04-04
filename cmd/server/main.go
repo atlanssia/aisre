@@ -11,6 +11,7 @@ import (
 	"github.com/atlanssia/aisre/internal/adapter/openobserve"
 	"github.com/atlanssia/aisre/internal/analysis"
 	"github.com/atlanssia/aisre/internal/api"
+	"github.com/atlanssia/aisre/internal/change"
 	"github.com/atlanssia/aisre/internal/incident"
 	"github.com/atlanssia/aisre/internal/similar"
 	"github.com/atlanssia/aisre/internal/store"
@@ -130,6 +131,14 @@ func run(configPath string) error {
 		slog.Info("similar incident feature enabled", "model", embCfg.Model)
 	}
 
+	// Change Correlation Service (Phase 2, feature-flagged)
+	var changeSvc *change.Service
+	if viper.GetBool("features.change_correlation.enabled") {
+		changeRepo := store.NewChangeRepo(db)
+		changeSvc = change.NewService(changeRepo, incidentRepo, reportRepo)
+		slog.Info("change correlation feature enabled")
+	}
+
 	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
 		LLMClient:     llmClient,
 		IncidentRepo:  incidentRepo,
@@ -142,7 +151,7 @@ func run(configPath string) error {
 
 	// HTTP Server
 	staticFS := getStaticFS()
-	router := api.NewRouterFullWithSimilar(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, staticFS)
+	router := api.NewRouterFullWithChanges(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, staticFS)
 	addr := fmt.Sprintf("%s:%d",
 		viper.GetString("server.host"),
 		viper.GetInt("server.port"),

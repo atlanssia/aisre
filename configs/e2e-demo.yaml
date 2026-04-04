@@ -34,3 +34,5 @@ embedding:
 features:
   similar_incident:
     enabled: true
+  change_correlation:
+    enabled: true

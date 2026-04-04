@@ -48,3 +48,5 @@ embedding:
 features:
   similar_incident:
     enabled: false
+  change_correlation:
+    enabled: false
