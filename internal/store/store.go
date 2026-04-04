@@ -132,6 +132,24 @@ type IncidentFilter struct {
 	Offset    int
 }
 
+// TopologyRepo defines the persistence interface for topology edges.
+type TopologyRepo interface {
+	Create(ctx context.Context, edge *TopologyEdge) (int64, error)
+	List(ctx context.Context) ([]TopologyEdge, error)
+	ListBySource(ctx context.Context, source string) ([]TopologyEdge, error)
+	Delete(ctx context.Context, id int64) error
+}
+
+// TopologyEdge is the persistent topology edge entity.
+type TopologyEdge struct {
+	ID       int64
+	Source   string
+	Target   string
+	Relation string
+	Metadata string // JSON
+	UpdatedAt string
+}
+
 // ReportFilter holds filter parameters for listing reports.
 type ReportFilter struct {
 	Service   string

@@ -36,3 +36,5 @@ features:
     enabled: true
   change_correlation:
     enabled: true
+  topology:
+    enabled: true

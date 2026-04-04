@@ -16,6 +16,7 @@ import (
 	"github.com/atlanssia/aisre/internal/similar"
 	"github.com/atlanssia/aisre/internal/store"
 	"github.com/atlanssia/aisre/internal/tool"
+	"github.com/atlanssia/aisre/internal/topology"
 	"github.com/spf13/viper"
 
 	_ "modernc.org/sqlite"
@@ -139,6 +140,14 @@ func run(configPath string) error {
 		slog.Info("change correlation feature enabled")
 	}
 
+	// Topology / Blast Radius Service (Phase 2, feature-flagged)
+	var topoSvc *topology.Service
+	if viper.GetBool("features.topology.enabled") {
+		topoRepo := store.NewTopologyRepo(db)
+		topoSvc = topology.NewService(topoRepo, incidentRepo)
+		slog.Info("topology feature enabled")
+	}
+
 	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
 		LLMClient:     llmClient,
 		IncidentRepo:  incidentRepo,
@@ -152,7 +161,7 @@ func run(configPath string) error {
 
 	// HTTP Server
 	staticFS := getStaticFS()
-	router := api.NewRouterFullWithChanges(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, staticFS)
+	router := api.NewRouterFullWithTopology(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, staticFS)
 	addr := fmt.Sprintf("%s:%d",
 		viper.GetString("server.host"),
 		viper.GetInt("server.port"),

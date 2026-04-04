@@ -60,13 +60,18 @@ func NewRouterFullWithSimilar(svc IncidentService, analysisSvc AnalysisService, 
 
 // NewRouterFullWithChanges creates a router with all endpoints including change correlation.
 func NewRouterFullWithChanges(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, staticFS fs.FS) http.Handler {
+	return NewRouterFullWithTopology(svc, analysisSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, nil, staticFS)
+}
+
+// NewRouterFullWithTopology creates a router with all endpoints including topology/blast radius.
+func NewRouterFullWithTopology(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, topoSvc TopologyService, staticFS fs.FS) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RequestID)
 
-	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc}
+	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc, topoSvc: topoSvc}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// SSE route — no contentTypeJSON middleware
@@ -98,6 +103,13 @@ func NewRouterFullWithChanges(svc IncidentService, analysisSvc AnalysisService, 
 				r.Get("/incidents/{id}/changes", h.getChangesForIncident)
 				r.Post("/changes", h.ingestChange)
 			}
+
+			// Topology / Blast Radius routes (feature-flagged)
+			if h.topoSvc != nil {
+				r.Get("/topology", h.getTopology)
+				r.Get("/incidents/{id}/blast-radius", h.getBlastRadius)
+				r.Post("/topology/edges", h.addTopologyEdge)
+			}
 		})
 	})
 
@@ -124,6 +136,7 @@ type handler struct {
 	reportRepo   store.ReportRepo
 	similarSvc   SimilarService
 	changeSvc    ChangeService
+	topoSvc      TopologyService
 }
 
 func contentTypeJSON(next http.Handler) http.Handler {

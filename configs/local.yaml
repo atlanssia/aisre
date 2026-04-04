@@ -50,3 +50,5 @@ features:
     enabled: false
   change_correlation:
     enabled: false
+  topology:
+    enabled: false
