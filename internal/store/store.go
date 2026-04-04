@@ -151,6 +151,29 @@ type TopologyEdge struct {
 	UpdatedAt string
 }
 
+// PromptTemplateRepo defines the persistence interface for prompt templates.
+type PromptTemplateRepo interface {
+	Create(ctx context.Context, tpl *PromptTemplate) (int64, error)
+	GetByID(ctx context.Context, id int64) (*PromptTemplate, error)
+	List(ctx context.Context) ([]PromptTemplate, error)
+	Update(ctx context.Context, tpl *PromptTemplate) error
+	GetByStage(ctx context.Context, stage string) (*PromptTemplate, error)
+}
+
+// PromptTemplate is the persistent prompt template entity.
+type PromptTemplate struct {
+	ID        int64
+	Name      string
+	Stage     string
+	SystemTpl string
+	UserTpl   string
+	Variables string // JSON array of variable names
+	IsDefault bool
+	Version   int
+	CreatedAt string
+	UpdatedAt string
+}
+
 // ReportFilter holds filter parameters for listing reports.
 type ReportFilter struct {
 	Service   string

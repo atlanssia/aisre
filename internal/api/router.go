@@ -65,13 +65,18 @@ func NewRouterFullWithChanges(svc IncidentService, analysisSvc AnalysisService, 
 
 // NewRouterFullWithTopology creates a router with all endpoints including topology/blast radius.
 func NewRouterFullWithTopology(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, topoSvc TopologyService, staticFS fs.FS) http.Handler {
+	return NewRouterFullWithPromptStudio(svc, analysisSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, nil, staticFS)
+}
+
+// NewRouterFullWithPromptStudio creates a router with all endpoints including prompt studio.
+func NewRouterFullWithPromptStudio(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, topoSvc TopologyService, promptStudioSvc PromptStudioService, staticFS fs.FS) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RequestID)
 
-	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc, topoSvc: topoSvc}
+	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc, topoSvc: topoSvc, promptStudioSvc: promptStudioSvc}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// SSE route — no contentTypeJSON middleware
@@ -110,6 +115,15 @@ func NewRouterFullWithTopology(svc IncidentService, analysisSvc AnalysisService,
 				r.Get("/incidents/{id}/blast-radius", h.getBlastRadius)
 				r.Post("/topology/edges", h.addTopologyEdge)
 			}
+
+			// Prompt Studio routes (feature-flagged)
+			if h.promptStudioSvc != nil {
+				r.Get("/prompts", h.listPromptTemplates)
+				r.Get("/prompts/{id}", h.getPromptTemplate)
+				r.Post("/prompts", h.createPromptTemplate)
+				r.Put("/prompts/{id}", h.updatePromptTemplate)
+				r.Post("/prompts/{id}/test", h.dryRunPromptTemplate)
+			}
 		})
 	})
 
@@ -134,9 +148,10 @@ type handler struct {
 	analysisSvc  AnalysisService
 	feedbackRepo store.FeedbackRepo
 	reportRepo   store.ReportRepo
-	similarSvc   SimilarService
-	changeSvc    ChangeService
-	topoSvc      TopologyService
+	similarSvc      SimilarService
+	changeSvc       ChangeService
+	topoSvc         TopologyService
+	promptStudioSvc PromptStudioService
 }
 
 func contentTypeJSON(next http.Handler) http.Handler {

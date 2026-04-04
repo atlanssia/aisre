@@ -13,6 +13,7 @@ import (
 	"github.com/atlanssia/aisre/internal/api"
 	"github.com/atlanssia/aisre/internal/change"
 	"github.com/atlanssia/aisre/internal/incident"
+	"github.com/atlanssia/aisre/internal/promptstudio"
 	"github.com/atlanssia/aisre/internal/similar"
 	"github.com/atlanssia/aisre/internal/store"
 	"github.com/atlanssia/aisre/internal/tool"
@@ -148,6 +149,14 @@ func run(configPath string) error {
 		slog.Info("topology feature enabled")
 	}
 
+	// Prompt Studio Service (Phase 2, feature-flagged)
+	var promptStudioSvc *promptstudio.Service
+	if viper.GetBool("features.prompt_studio.enabled") {
+		promptTplRepo := store.NewPromptTemplateRepo(db)
+		promptStudioSvc = promptstudio.NewService(promptTplRepo)
+		slog.Info("prompt studio feature enabled")
+	}
+
 	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
 		LLMClient:      llmClient,
 		IncidentRepo:   incidentRepo,
@@ -162,7 +171,7 @@ func run(configPath string) error {
 
 	// HTTP Server
 	staticFS := getStaticFS()
-	router := api.NewRouterFullWithTopology(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, staticFS)
+	router := api.NewRouterFullWithPromptStudio(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, promptStudioSvc, staticFS)
 	addr := fmt.Sprintf("%s:%d",
 		viper.GetString("server.host"),
 		viper.GetInt("server.port"),
