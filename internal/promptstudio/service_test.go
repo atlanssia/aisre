@@ -121,9 +121,12 @@ func TestDryRun(t *testing.T) {
 		t.Fatalf("dryrun: %v", err)
 	}
 
-	expected := "Analyze payment-svc with severity critical."
-	if result != expected {
-		t.Errorf("result = %q, want %q", result, expected)
+	expectedUser := "Analyze payment-svc with severity critical."
+	if result.UserPrompt != expectedUser {
+		t.Errorf("user_prompt = %q, want %q", result.UserPrompt, expectedUser)
+	}
+	if result.SystemPrompt != "You are an analyst." {
+		t.Errorf("system_prompt = %q, want %q", result.SystemPrompt, "You are an analyst.")
 	}
 }
 

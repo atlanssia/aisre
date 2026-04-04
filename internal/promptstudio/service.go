@@ -112,17 +112,47 @@ func (s *Service) Update(ctx context.Context, id int64, req contract.UpdatePromp
 	return &ct, nil
 }
 
-// DryRun renders a template with provided variables.
-func (s *Service) DryRun(ctx context.Context, id int64, vars map[string]string) (string, error) {
+// DryRun renders both system and user templates with provided variables.
+// Only variables declared in the template's Variables field are used.
+func (s *Service) DryRun(ctx context.Context, id int64, vars map[string]string) (*contract.PromptDryRunResponse, error) {
 	tpl, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return "", fmt.Errorf("promptstudio: dryrun: %w", err)
+		return nil, fmt.Errorf("promptstudio: dryrun: %w", err)
 	}
-	rendered, err := RenderTemplate(tpl.UserTpl, vars)
+
+	// Filter vars to only those declared in the template
+	allowed := allowedVars(tpl.Variables)
+	filtered := make(map[string]string, len(allowed))
+	for k, v := range vars {
+		if allowed[k] {
+			filtered[k] = v
+		}
+	}
+
+	systemRendered, err := RenderTemplate(tpl.SystemTpl, filtered)
 	if err != nil {
-		return "", fmt.Errorf("promptstudio: dryrun: render: %w", err)
+		return nil, fmt.Errorf("promptstudio: dryrun: render system: %w", err)
 	}
-	return rendered, nil
+	userRendered, err := RenderTemplate(tpl.UserTpl, filtered)
+	if err != nil {
+		return nil, fmt.Errorf("promptstudio: dryrun: render user: %w", err)
+	}
+	return &contract.PromptDryRunResponse{
+		SystemPrompt: systemRendered,
+		UserPrompt:   userRendered,
+	}, nil
+}
+
+func allowedVars(varsJSON string) map[string]bool {
+	var vars []string
+	if varsJSON != "" {
+		json.Unmarshal([]byte(varsJSON), &vars)
+	}
+	m := make(map[string]bool, len(vars))
+	for _, v := range vars {
+		m[v] = true
+	}
+	return m
 }
 
 // RenderTemplate performs safe variable interpolation using strings.Replace.

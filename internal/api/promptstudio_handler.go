@@ -17,7 +17,7 @@ type PromptStudioService interface {
 	Get(ctx context.Context, id int64) (*contract.PromptTemplate, error)
 	Create(ctx context.Context, req contract.CreatePromptTemplateRequest) (*contract.PromptTemplate, error)
 	Update(ctx context.Context, id int64, req contract.UpdatePromptTemplateRequest) (*contract.PromptTemplate, error)
-	DryRun(ctx context.Context, id int64, vars map[string]string) (string, error)
+	DryRun(ctx context.Context, id int64, vars map[string]string) (*contract.PromptDryRunResponse, error)
 }
 
 func (h *handler) listPromptTemplates(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +120,5 @@ func (h *handler) dryRunPromptTemplate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error(), "DRYRUN_ERROR")
 		return
 	}
-	json.NewEncoder(w).Encode(contract.PromptDryRunResponse{
-		UserPrompt: result,
-	})
+	json.NewEncoder(w).Encode(result)
 }
