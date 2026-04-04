@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/atlanssia/aisre/internal/api"
 	"github.com/atlanssia/aisre/internal/change"
 	"github.com/atlanssia/aisre/internal/incident"
+	"github.com/atlanssia/aisre/internal/postmortem"
 	"github.com/atlanssia/aisre/internal/promptstudio"
 	"github.com/atlanssia/aisre/internal/similar"
 	"github.com/atlanssia/aisre/internal/store"
@@ -166,6 +168,21 @@ func run(configPath string) error {
 		slog.Info("alert aggregation feature enabled")
 	}
 
+	// Postmortem Service (Phase 2, feature-flagged)
+	var postmortemSvc *postmortem.Service
+	if viper.GetBool("features.postmortem.enabled") {
+		pmRepo := store.NewPostmortemRepo(db)
+		llmGen := postmortem.NewDefaultLLMGenerator(func(ctx context.Context, messages []postmortem.Message) (*postmortem.LLMResponse, error) {
+			resp, err := llmClient.Complete(ctx, convertMessages(messages))
+			if err != nil {
+				return nil, err
+			}
+			return &postmortem.LLMResponse{Content: resp.Content}, nil
+		})
+		postmortemSvc = postmortem.NewService(pmRepo, incidentSvc, reportRepo, evidenceRepo, feedbackRepo, llmGen)
+		slog.Info("postmortem feature enabled")
+	}
+
 	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
 		LLMClient:      llmClient,
 		IncidentRepo:   incidentRepo,
@@ -180,7 +197,7 @@ func run(configPath string) error {
 
 	// HTTP Server
 	staticFS := getStaticFS()
-	router := api.NewRouterFullWithAlertGroup(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, promptStudioSvc, alertGroupSvc, staticFS)
+	router := api.NewRouterFullWithPostmortem(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, promptStudioSvc, alertGroupSvc, postmortemSvc, staticFS)
 	addr := fmt.Sprintf("%s:%d",
 		viper.GetString("server.host"),
 		viper.GetInt("server.port"),
@@ -191,4 +208,13 @@ func run(configPath string) error {
 
 	slog.Info("server starting", "addr", addr)
 	return http.ListenAndServe(addr, router)
+}
+
+// convertMessages adapts postmortem.Message slices to analysis.Message for the LLM client.
+func convertMessages(msgs []postmortem.Message) []analysis.Message {
+	result := make([]analysis.Message, len(msgs))
+	for i, m := range msgs {
+		result[i] = analysis.Message{Role: m.Role, Content: m.Content}
+	}
+	return result
 }

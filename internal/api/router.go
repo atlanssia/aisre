@@ -75,13 +75,18 @@ func NewRouterFullWithPromptStudio(svc IncidentService, analysisSvc AnalysisServ
 
 // NewRouterFullWithAlertGroup creates a router with all endpoints including alert aggregation.
 func NewRouterFullWithAlertGroup(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, topoSvc TopologyService, promptStudioSvc PromptStudioService, alertGroupSvc AlertGroupService, staticFS fs.FS) http.Handler {
+	return NewRouterFullWithPostmortem(svc, analysisSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, promptStudioSvc, alertGroupSvc, nil, staticFS)
+}
+
+// NewRouterFullWithPostmortem creates a router with all endpoints including postmortem.
+func NewRouterFullWithPostmortem(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, topoSvc TopologyService, promptStudioSvc PromptStudioService, alertGroupSvc AlertGroupService, postmortemSvc PostmortemService, staticFS fs.FS) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RequestID)
 
-	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc, topoSvc: topoSvc, promptStudioSvc: promptStudioSvc, alertGroupSvc: alertGroupSvc}
+	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc, topoSvc: topoSvc, promptStudioSvc: promptStudioSvc, alertGroupSvc: alertGroupSvc, postmortemSvc: postmortemSvc}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// SSE route — no contentTypeJSON middleware
@@ -137,6 +142,14 @@ func NewRouterFullWithAlertGroup(svc IncidentService, analysisSvc AnalysisServic
 				r.Get("/alert-groups/{id}", h.getAlertGroup)
 				r.Post("/alert-groups/{id}/escalate", h.escalateAlertGroup)
 			}
+
+			// Postmortem routes (feature-flagged)
+			if h.postmortemSvc != nil {
+				r.Post("/incidents/{id}/postmortem", h.generatePostmortem)
+				r.Get("/postmortems", h.listPostmortems)
+				r.Get("/postmortems/{id}", h.getPostmortem)
+				r.Put("/postmortems/{id}", h.updatePostmortem)
+			}
 		})
 	})
 
@@ -166,6 +179,7 @@ type handler struct {
 	topoSvc         TopologyService
 	promptStudioSvc PromptStudioService
 	alertGroupSvc   AlertGroupService
+	postmortemSvc   PostmortemService
 }
 
 func contentTypeJSON(next http.Handler) http.Handler {

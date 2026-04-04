@@ -56,3 +56,5 @@ features:
     enabled: false
   alert_aggregation:
     enabled: false
+  postmortem:
+    enabled: false

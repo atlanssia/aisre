@@ -174,6 +174,38 @@ type PromptTemplate struct {
 	UpdatedAt string
 }
 
+// AlertGroupRepo defines the persistence interface for alert groups.
+type AlertGroupRepo interface {
+	Create(ctx context.Context, ag *AlertGroup) (int64, error)
+	GetByID(ctx context.Context, id int64) (*AlertGroup, error)
+	GetByFingerprint(ctx context.Context, fp string) (*AlertGroup, error)
+	Update(ctx context.Context, ag *AlertGroup) error
+	List(ctx context.Context, filter AlertGroupFilter) ([]AlertGroup, error)
+}
+
+// AlertGroup is the persistent alert group entity.
+type AlertGroup struct {
+	ID         int64
+	Fingerprint string
+	Title      string
+	Severity   string
+	Labels     string // JSON
+	IncidentID *int64
+	Count      int
+	FirstSeen  string
+	LastSeen   string
+	CreatedAt  string
+}
+
+// AlertGroupFilter holds filter parameters for listing alert groups.
+type AlertGroupFilter struct {
+	Severity  string
+	StartTime string
+	EndTime   string
+	Limit     int
+	Offset    int
+}
+
 // ReportFilter holds filter parameters for listing reports.
 type ReportFilter struct {
 	Service   string
@@ -182,4 +214,23 @@ type ReportFilter struct {
 	Severity  string
 	Limit     int
 	Offset    int
+}
+
+// PostmortemRepo defines the persistence interface for postmortems.
+type PostmortemRepo interface {
+	Create(ctx context.Context, pm *Postmortem) (int64, error)
+	GetByID(ctx context.Context, id int64) (*Postmortem, error)
+	GetByIncidentID(ctx context.Context, incidentID int64) (*Postmortem, error)
+	List(ctx context.Context) ([]Postmortem, error)
+	Update(ctx context.Context, pm *Postmortem) error
+}
+
+// Postmortem is the persistent postmortem entity.
+type Postmortem struct {
+	ID         int64
+	IncidentID int64
+	Content    string
+	Status     string
+	CreatedAt  string
+	UpdatedAt  string
 }
