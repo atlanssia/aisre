@@ -3,7 +3,9 @@ package alertgroup
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -42,10 +44,17 @@ func (s *Service) Ingest(ctx context.Context, alert contract.IncomingAlert) (*co
 	if alert.Severity == "" {
 		alert.Severity = "warning"
 	}
+	validSeverities := map[string]bool{"critical": true, "high": true, "medium": true, "low": true, "info": true, "warning": true}
+	if !validSeverities[alert.Severity] {
+		return nil, fmt.Errorf("alertgroup: ingest: invalid severity %q", alert.Severity)
+	}
 	fp := computeFingerprint(alert.Labels)
 
 	existing, err := s.alertRepo.GetByFingerprint(ctx, fp)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("alertgroup: ingest: lookup: %w", err)
+	}
+	if errors.Is(err, sql.ErrNoRows) {
 		// Not found — create new group
 		now := time.Now().UTC().Format(time.RFC3339)
 		labelsJSON, _ := json.Marshal(alert.Labels)
@@ -83,7 +92,7 @@ func (s *Service) Ingest(ctx context.Context, alert contract.IncomingAlert) (*co
 // List returns alert groups matching a filter.
 func (s *Service) List(ctx context.Context, filter contract.AlertGroupFilter) ([]contract.AlertGroup, error) {
 	if filter.Severity != "" {
-		validSeverities := map[string]bool{"critical": true, "high": true, "medium": true, "low": true, "info": true}
+		validSeverities := map[string]bool{"critical": true, "high": true, "medium": true, "low": true, "info": true, "warning": true}
 		if !validSeverities[filter.Severity] {
 			return nil, fmt.Errorf("alertgroup: list: invalid severity %q", filter.Severity)
 		}

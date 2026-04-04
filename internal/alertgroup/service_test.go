@@ -2,6 +2,7 @@ package alertgroup
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 
@@ -40,7 +41,7 @@ func (m *mockAlertGroupRepo) GetByID(_ context.Context, id int64) (*store.AlertG
 func (m *mockAlertGroupRepo) GetByFingerprint(_ context.Context, fp string) (*store.AlertGroup, error) {
 	ag, ok := m.groups[fp]
 	if !ok {
-		return nil, fmt.Errorf("not found: %s", fp)
+		return nil, fmt.Errorf("not found: %s: %w", fp, sql.ErrNoRows)
 	}
 	copy := *ag
 	return &copy, nil
@@ -148,12 +149,18 @@ func TestIngest_DifferentLabels_NoDedup(t *testing.T) {
 	incSvc := &mockIncidentSvc{}
 	svc := NewService(repo, incSvc)
 
-	group1, _ := svc.Ingest(context.Background(), contract.IncomingAlert{
+	group1, err := svc.Ingest(context.Background(), contract.IncomingAlert{
 		Title: "Alert A", Labels: map[string]string{"host": "web-01"},
 	})
-	group2, _ := svc.Ingest(context.Background(), contract.IncomingAlert{
+	if err != nil {
+		t.Fatalf("first ingest: %v", err)
+	}
+	group2, err := svc.Ingest(context.Background(), contract.IncomingAlert{
 		Title: "Alert B", Labels: map[string]string{"host": "web-02"},
 	})
+	if err != nil {
+		t.Fatalf("second ingest: %v", err)
+	}
 
 	if group1.ID == group2.ID {
 		t.Error("different labels should create different groups")

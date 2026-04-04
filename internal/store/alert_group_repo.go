@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -34,8 +35,8 @@ func (r *sqliteAlertGroupRepo) GetByID(ctx context.Context, id int64) (*AlertGro
 		`SELECT id, fingerprint, title, severity, labels, incident_id, count, first_seen, last_seen, created_at
 		 FROM alert_groups WHERE id = ?`, id,
 	).Scan(&ag.ID, &ag.Fingerprint, &ag.Title, &ag.Severity, &ag.Labels, &incidentID, &ag.Count, &ag.FirstSeen, &ag.LastSeen, &ag.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("alert_group_repo: %d not found", id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("alert_group_repo: %d not found: %w", id, sql.ErrNoRows)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("alert_group_repo: get: %w", err)
@@ -54,8 +55,8 @@ func (r *sqliteAlertGroupRepo) GetByFingerprint(ctx context.Context, fp string) 
 		`SELECT id, fingerprint, title, severity, labels, incident_id, count, first_seen, last_seen, created_at
 		 FROM alert_groups WHERE fingerprint = ?`, fp,
 	).Scan(&ag.ID, &ag.Fingerprint, &ag.Title, &ag.Severity, &ag.Labels, &incidentID, &ag.Count, &ag.FirstSeen, &ag.LastSeen, &ag.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("alert_group_repo: fingerprint %s not found", fp)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("alert_group_repo: fingerprint %s not found: %w", fp, sql.ErrNoRows)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("alert_group_repo: get by fingerprint: %w", err)
@@ -69,7 +70,7 @@ func (r *sqliteAlertGroupRepo) GetByFingerprint(ctx context.Context, fp string) 
 
 func (r *sqliteAlertGroupRepo) Update(ctx context.Context, ag *AlertGroup) error {
 	result, err := r.db.ExecContext(ctx,
-		`UPDATE alert_groups SET title=?, severity=?, labels=?, incident_id=?, count=?, first_seen=?, last_seen=? WHERE id = ?`,
+		`UPDATE alert_groups SET title=?, severity=?, labels=?, incident_id=?, count=?, first_seen=?, last_seen=?, updated_at=datetime('now') WHERE id = ?`,
 		ag.Title, ag.Severity, ag.Labels, ag.IncidentID, ag.Count, ag.FirstSeen, ag.LastSeen, ag.ID,
 	)
 	if err != nil {

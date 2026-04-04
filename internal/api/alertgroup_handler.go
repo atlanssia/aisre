@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -100,7 +101,15 @@ func (h *handler) escalateAlertGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := h.alertGroupSvc.Escalate(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error(), "ESCALATE_ERROR")
+		if strings.Contains(err.Error(), "already escalated") {
+			writeError(w, http.StatusConflict, err.Error(), "ALREADY_ESCALATED")
+			return
+		}
+		if strings.Contains(err.Error(), "not found") {
+			writeError(w, http.StatusNotFound, err.Error(), "NOT_FOUND")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error(), "ESCALATE_ERROR")
 		return
 	}
 	json.NewEncoder(w).Encode(resp)
