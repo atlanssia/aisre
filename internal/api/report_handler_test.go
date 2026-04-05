@@ -47,13 +47,13 @@ func (m *mockAnalysisService) AnalyzeIncident(ctx context.Context, incidentID in
 	}
 
 	// Save mock evidence
-	m.evidenceRepo.Create(ctx, &store.Evidence{
+	_, _ = m.evidenceRepo.Create(ctx, &store.Evidence{
 		ReportID:     id,
 		EvidenceType: "log",
 		Score:        0.9,
 		Payload:      `{"message":"connection refused"}`,
 	})
-	m.evidenceRepo.Create(ctx, &store.Evidence{
+	_, _ = m.evidenceRepo.Create(ctx, &store.Evidence{
 		ReportID:     id,
 		EvidenceType: "trace",
 		Score:        0.75,

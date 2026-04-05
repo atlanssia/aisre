@@ -12,7 +12,7 @@ import (
 func TestBuilder_Build_RendersTemplate(t *testing.T) {
 	// Create a temp template directory with a test template
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "rca_system_v1.txt"), []byte("Service: {{.Incident.ServiceName}}, Severity: {{.Incident.Severity}}"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "rca_system_v1.txt"), []byte("Service: {{.Incident.ServiceName}}, Severity: {{.Incident.Severity}}"), 0644)
 
 	b := NewBuilderWithDir(dir, "rca_system_v1")
 	input := PromptInput{
@@ -35,7 +35,7 @@ func TestBuilder_Build_RendersTemplate(t *testing.T) {
 
 func TestBuilder_Build_IncludesEvidence(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "rca_system_v1.txt"), []byte("{{range .Evidence}}- {{.Name}}: {{.Summary}}\n{{end}}"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "rca_system_v1.txt"), []byte("{{range .Evidence}}- {{.Name}}: {{.Summary}}\n{{end}}"), 0644)
 
 	b := NewBuilderWithDir(dir, "rca_system_v1")
 	input := PromptInput{

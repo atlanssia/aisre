@@ -9,8 +9,8 @@ import (
 
 func TestRenderer_LoadTemplates(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "test_v1.txt"), []byte("Hello {{.Name}}!"), 0644)
-	os.WriteFile(filepath.Join(dir, "test_v2.txt"), []byte("Bye {{.Name}}!"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "test_v1.txt"), []byte("Hello {{.Name}}!"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "test_v2.txt"), []byte("Bye {{.Name}}!"), 0644)
 
 	r, err := NewRenderer(dir)
 	if err != nil {
@@ -23,7 +23,7 @@ func TestRenderer_LoadTemplates(t *testing.T) {
 
 func TestRenderer_Render(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "greet_v1.txt"), []byte("Hello {{.Name}}, you have {{.Count}} alerts!"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "greet_v1.txt"), []byte("Hello {{.Name}}, you have {{.Count}} alerts!"), 0644)
 
 	r, _ := NewRenderer(dir)
 	out, err := r.Render("greet_v1", map[string]any{"Name": "SRE", "Count": 5})
@@ -95,7 +95,7 @@ func TestNewRenderer_NonexistentDir(t *testing.T) {
 
 func TestRenderer_TemplateNameParsing(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "my_prompt_v2.txt"), []byte("test"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "my_prompt_v2.txt"), []byte("test"), 0644)
 
 	r, _ := NewRenderer(dir)
 	if _, ok := r.templates["my_prompt_v2"]; !ok {

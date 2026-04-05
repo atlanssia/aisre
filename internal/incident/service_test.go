@@ -107,8 +107,8 @@ func TestService_ListIncidents(t *testing.T) {
 	svc := setupService(t)
 	ctx := context.Background()
 
-	svc.CreateIncident(ctx, contract.CreateIncidentRequest{Source: "a", Service: "s1", Severity: "low"})
-	svc.CreateIncident(ctx, contract.CreateIncidentRequest{Source: "b", Service: "s2", Severity: "high"})
+	_, _ = svc.CreateIncident(ctx, contract.CreateIncidentRequest{Source: "a", Service: "s1", Severity: "low"})
+	_, _ = svc.CreateIncident(ctx, contract.CreateIncidentRequest{Source: "b", Service: "s2", Severity: "high"})
 
 	items, err := svc.ListIncidents(ctx, store.IncidentFilter{Limit: 10})
 	if err != nil {

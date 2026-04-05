@@ -175,7 +175,7 @@ func TestGenerate(t *testing.T) {
 func TestGenerate_AlreadyExists(t *testing.T) {
 	repo := newMockPostmortemRepo()
 	// Pre-create a postmortem for incident 1
-	repo.Create(context.Background(), &store.Postmortem{IncidentID: 1, Status: "draft"})
+	_, _ = repo.Create(context.Background(), &store.Postmortem{IncidentID: 1, Status: "draft"})
 	repo.byIncident[1] = &store.Postmortem{ID: 1, IncidentID: 1, Status: "draft"}
 
 	incLookup := &mockIncidentLookup{
@@ -223,8 +223,8 @@ func TestGenerate_LLMError(t *testing.T) {
 
 func TestList(t *testing.T) {
 	repo := newMockPostmortemRepo()
-	repo.Create(context.Background(), &store.Postmortem{IncidentID: 1, Content: "PM1", Status: "draft"})
-	repo.Create(context.Background(), &store.Postmortem{IncidentID: 2, Content: "PM2", Status: "reviewed"})
+	_, _ = repo.Create(context.Background(), &store.Postmortem{IncidentID: 1, Content: "PM1", Status: "draft"})
+	_, _ = repo.Create(context.Background(), &store.Postmortem{IncidentID: 2, Content: "PM2", Status: "reviewed"})
 
 	svc := NewService(repo, &mockIncidentLookup{}, &mockReportRepo{}, &mockEvidenceRepo{}, &mockFeedbackRepo{}, &mockLLMGenerator{})
 	items, err := svc.List(context.Background())

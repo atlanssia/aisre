@@ -36,7 +36,7 @@ func (h *handler) ingestAlert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(group)
+	_ = json.NewEncoder(w).Encode(group)
 }
 
 func (h *handler) listAlertGroups(w http.ResponseWriter, r *http.Request) {
@@ -68,8 +68,7 @@ func (h *handler) listAlertGroups(w http.ResponseWriter, r *http.Request) {
 	if groups == nil {
 		groups = []contract.AlertGroup{}
 	}
-	json.NewEncoder(w).Encode(groups)
-}
+	_ = json.NewEncoder(w).Encode(groups)}
 
 func (h *handler) getAlertGroup(w http.ResponseWriter, r *http.Request) {
 	if h.alertGroupSvc == nil {
@@ -86,8 +85,7 @@ func (h *handler) getAlertGroup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err.Error(), "NOT_FOUND")
 		return
 	}
-	json.NewEncoder(w).Encode(group)
-}
+	_ = json.NewEncoder(w).Encode(group)}
 
 func (h *handler) escalateAlertGroup(w http.ResponseWriter, r *http.Request) {
 	if h.alertGroupSvc == nil {
@@ -112,5 +110,4 @@ func (h *handler) escalateAlertGroup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error(), "ESCALATE_ERROR")
 		return
 	}
-	json.NewEncoder(w).Encode(resp)
-}
+	_ = json.NewEncoder(w).Encode(resp)}

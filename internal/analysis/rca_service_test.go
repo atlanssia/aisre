@@ -86,7 +86,7 @@ func TestRCAService_AnalyzeIncident(t *testing.T) {
 					"total_tokens":      150,
 				},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}))
 		defer server.Close()
 
@@ -199,7 +199,7 @@ func TestRCAService_GetReport(t *testing.T) {
 			ReportJSON: `{"summary":"test"}`,
 		})
 
-		evidenceRepo.Create(ctx, &store.Evidence{
+		_, _ = evidenceRepo.Create(ctx, &store.Evidence{
 			ReportID:     reportID,
 			EvidenceType: "log",
 			Score:        0.9,
@@ -274,10 +274,10 @@ func TestRCAService_GetEvidence(t *testing.T) {
 		Confidence: 0.8,
 	})
 
-	evidenceRepo.Create(ctx, &store.Evidence{
+	_, _ = evidenceRepo.Create(ctx, &store.Evidence{
 		ReportID: reportID, EvidenceType: "log", Score: 0.9, Payload: `{"msg":"err"}`,
 	})
-	evidenceRepo.Create(ctx, &store.Evidence{
+	_, _ = evidenceRepo.Create(ctx, &store.Evidence{
 		ReportID: reportID, EvidenceType: "trace", Score: 0.7, Payload: `{"duration":5000}`,
 	})
 
@@ -350,7 +350,7 @@ func TestRCAService_AnalyzeIncident_NoToolResults(t *testing.T) {
 		t.Fatal(err)
 	}
 	if report == nil {
-		t.Error("expected report even with no evidence")
+		t.Fatal("expected report even with no evidence")
 	}
 	if report.Confidence > 0.5 {
 		t.Errorf("expected low confidence with no evidence, got %f", report.Confidence)

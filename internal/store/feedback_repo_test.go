@@ -49,10 +49,10 @@ func TestFeedbackRepo_ListByReport(t *testing.T) {
 		IncidentID: incID, Summary: "s", RootCause: "r", Confidence: 0.8, ReportJSON: "{}",
 	})
 
-	feedbackRepo.Create(ctx, &Feedback{
+	_, _ = feedbackRepo.Create(ctx, &Feedback{
 		ReportID: reportID, UserID: "u1", Rating: 5, ActionTaken: "accepted",
 	})
-	feedbackRepo.Create(ctx, &Feedback{
+	_, _ = feedbackRepo.Create(ctx, &Feedback{
 		ReportID: reportID, UserID: "u2", Rating: 3, ActionTaken: "partial",
 	})
 
@@ -112,7 +112,7 @@ func TestReportRepo_List_IncludesStatus(t *testing.T) {
 		Source: "test", ServiceName: "svc", Severity: "high", Status: "open",
 	})
 
-	repo.Create(ctx, &Report{IncidentID: incID, Summary: "r1", RootCause: "rc1", Confidence: 0.8, ReportJSON: "{}"})
+	_, _ = repo.Create(ctx, &Report{IncidentID: incID, Summary: "r1", RootCause: "rc1", Confidence: 0.8, ReportJSON: "{}"})
 
 	items, err := repo.List(ctx, ReportFilter{Limit: 10})
 	if err != nil {

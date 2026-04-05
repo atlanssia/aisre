@@ -73,7 +73,7 @@ func (h *handler) submitFeedback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (h *handler) listFeedback(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +108,7 @@ func (h *handler) listFeedback(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (h *handler) searchReports(w http.ResponseWriter, r *http.Request) {
@@ -173,10 +173,10 @@ func (h *handler) searchReports(w http.ResponseWriter, r *http.Request) {
 		if results == nil {
 			results = []contract.ReportResponse{}
 		}
-		json.NewEncoder(w).Encode(results)
+		_ = json.NewEncoder(w).Encode(results)
 		return
 	}
 
 	// Fallback: return empty array if no reportRepo available
-	w.Write([]byte("[]"))
+	_, _ = w.Write([]byte("[]"))
 }

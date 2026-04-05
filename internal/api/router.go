@@ -190,5 +190,5 @@ func contentTypeJSON(next http.Handler) http.Handler {
 }
 
 func (h *handler) health(w http.ResponseWriter, _ *http.Request) {
-	w.Write([]byte(`{"status":"ok"}`))
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }

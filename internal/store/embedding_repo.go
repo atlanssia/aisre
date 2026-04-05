@@ -51,7 +51,7 @@ func (r *sqliteEmbeddingRepo) ListByService(ctx context.Context, service string)
 	if err != nil {
 		return nil, fmt.Errorf("embedding_repo: list by service: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []Embedding
 	for rows.Next() {

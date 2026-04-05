@@ -33,9 +33,9 @@ func TestSSEWriter_WriteEvent_MultipleEvents(t *testing.T) {
 	w := httptest.NewRecorder()
 	sse := newSSEWriter(w)
 
-	sse.WriteEvent("status", map[string]string{"phase": "start"})
-	sse.WriteEvent("progress", map[string]int{"percent": 50})
-	sse.WriteEvent("complete", map[string]string{"id": "123"})
+	_ = sse.WriteEvent("status", map[string]string{"phase": "start"})
+	_ = sse.WriteEvent("progress", map[string]int{"percent": 50})
+	_ = sse.WriteEvent("complete", map[string]string{"id": "123"})
 
 	body := w.Body.String()
 	events := strings.Split(strings.TrimSpace(body), "\n\n")
@@ -89,7 +89,7 @@ func TestSSEWriter_FlushesAfterWrite(t *testing.T) {
 	w := &flushTracker{ResponseWriter: httptest.NewRecorder()}
 	sse := newSSEWriter(w)
 
-	sse.WriteEvent("status", map[string]string{"msg": "test"})
+	_ = sse.WriteEvent("status", map[string]string{"msg": "test"})
 
 	if w.flushCount == 0 {
 		t.Error("expected Flush to be called after WriteEvent")
@@ -108,11 +108,7 @@ func (f *flushTracker) Flush() {
 
 // Write is needed so the embedded data goes to the right place.
 func (f *flushTracker) Write(b []byte) (int, error) {
-	// Delegate to the inner httptest.Recorder
-	if r, ok := f.ResponseWriter.(http.ResponseWriter); ok {
-		return r.Write(b)
-	}
-	return len(b), nil
+	return f.ResponseWriter.Write(b)
 }
 
 // Verify SSEWriter fails gracefully when data cannot be marshalled

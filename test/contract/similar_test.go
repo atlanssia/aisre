@@ -75,7 +75,7 @@ func TestSimilarQuery_JSONFields(t *testing.T) {
 	q := contract.SimilarQuery{TopK: 5, Threshold: 0.7}
 	b, _ := json.Marshal(q)
 	var m map[string]any
-	json.Unmarshal(b, &m)
+	_ = json.Unmarshal(b, &m)
 
 	if m["top_k"] != float64(5) {
 		t.Errorf("top_k: got %v, want 5", m["top_k"])

@@ -43,23 +43,4 @@ func extractString(m map[string]any, key string) string {
 	return ""
 }
 
-// extractFloat extracts a float64 value from a map.
-func extractFloat(m map[string]any, key string) float64 {
-	if v, ok := m[key]; ok {
-		switch val := v.(type) {
-		case float64:
-			return val
-		case int:
-			return float64(val)
-		case json_Number:
-			f, _ := val.Float64()
-			return f
-		}
-	}
-	return 0
-}
-
-type json_Number = interface {
-	Float64() (float64, error)
-}
 

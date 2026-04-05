@@ -24,8 +24,8 @@ func setupAPIWithFeedback(t *testing.T) http.Handler {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		db.Close()
-		os.Remove(dbPath)
+		_ = db.Close()
+		_ = os.Remove(dbPath)
 	})
 	if err := store.RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)

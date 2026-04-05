@@ -17,8 +17,8 @@ func setupTestDB(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		db.Close()
-		os.Remove(dbPath)
+		_ = db.Close()
+		_ = os.Remove(dbPath)
 	})
 	if err := RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)

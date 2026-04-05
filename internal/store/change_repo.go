@@ -88,7 +88,7 @@ func (r *sqliteChangeRepo) List(ctx context.Context, filter ChangeFilter) ([]Cha
 	if err != nil {
 		return nil, fmt.Errorf("change_repo: list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []Change
 	for rows.Next() {

@@ -116,7 +116,7 @@ func (r *sqliteAlertGroupRepo) List(ctx context.Context, filter AlertGroupFilter
 	if err != nil {
 		return nil, fmt.Errorf("alert_group_repo: list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []AlertGroup
 	for rows.Next() {

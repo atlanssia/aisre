@@ -72,7 +72,7 @@ func TestEmbeddingRepo_ListByService(t *testing.T) {
 		id, _ := incRepo.Create(ctx, &Incident{
 			Source: "test", ServiceName: svc, Severity: "high", Status: "open",
 		})
-		embRepo.Create(ctx, id, svc, []byte{byte(i)}, "test-model")
+		_ = embRepo.Create(ctx, id, svc, []byte{byte(i)}, "test-model")
 	}
 
 	results, err := embRepo.ListByService(ctx, "api-gw")

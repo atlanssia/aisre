@@ -28,7 +28,7 @@ func (h *handler) analyzeIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(report)
+	_ = json.NewEncoder(w).Encode(report)
 }
 
 func (h *handler) getReport(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +49,7 @@ func (h *handler) getReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(report)
+	_ = json.NewEncoder(w).Encode(report)
 }
 
 func (h *handler) getEvidence(w http.ResponseWriter, r *http.Request) {
@@ -75,9 +75,9 @@ func (h *handler) getEvidence(w http.ResponseWriter, r *http.Request) {
 
 	// Return empty array for no evidence (not null)
 	if len(items) == 0 {
-		w.Write([]byte("[]"))
+		_, _ = w.Write([]byte("[]"))
 		return
 	}
 
-	json.NewEncoder(w).Encode(items)
+	_ = json.NewEncoder(w).Encode(items)
 }

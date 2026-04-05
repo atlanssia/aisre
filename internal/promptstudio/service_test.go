@@ -84,10 +84,10 @@ func TestCreateAndGet(t *testing.T) {
 
 func TestList(t *testing.T) {
 	svc := NewService(&mockPromptRepo{})
-	svc.Create(context.Background(), contract.CreatePromptTemplateRequest{
+	_, _ = svc.Create(context.Background(), contract.CreatePromptTemplateRequest{
 		Name: "a", Stage: "rca", SystemTpl: "sys", UserTpl: "usr", Variables: []string{},
 	})
-	svc.Create(context.Background(), contract.CreatePromptTemplateRequest{
+	_, _ = svc.Create(context.Background(), contract.CreatePromptTemplateRequest{
 		Name: "b", Stage: "context", SystemTpl: "sys", UserTpl: "usr", Variables: []string{},
 	})
 

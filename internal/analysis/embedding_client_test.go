@@ -23,7 +23,9 @@ func TestEmbeddingClient_Embed(t *testing.T) {
 			}
 
 			var req map[string]any
-			json.NewDecoder(r.Body).Decode(&req)
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Errorf("decode request: %v", err)
+			}
 			if req["model"] != "text-embedding-test" {
 				t.Errorf("model: got %v, want text-embedding-test", req["model"])
 			}

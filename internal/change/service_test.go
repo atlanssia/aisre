@@ -19,10 +19,10 @@ func TestService_GetChanges(t *testing.T) {
 	ctx := context.Background()
 
 	// Ingest some changes
-	svc.IngestChange(ctx, contract.ChangeEvent{
+	_, _ = svc.IngestChange(ctx, contract.ChangeEvent{
 		Service: "api-gw", ChangeType: "deploy", Summary: "Deploy v1", Timestamp: "2025-01-15T09:00:00Z",
 	})
-	svc.IngestChange(ctx, contract.ChangeEvent{
+	_, _ = svc.IngestChange(ctx, contract.ChangeEvent{
 		Service: "payment", ChangeType: "config", Summary: "Config update", Timestamp: "2025-01-15T10:00:00Z",
 	})
 
@@ -66,7 +66,7 @@ func TestService_GetChangesForIncident(t *testing.T) {
 	inc, _ := incRepo.GetByID(ctx, incID)
 
 	// Ingest change for same service with a timestamp that falls within the 2h lookback window
-	svc.IngestChange(ctx, contract.ChangeEvent{
+	_, _ = svc.IngestChange(ctx, contract.ChangeEvent{
 		Service: "api-gw", ChangeType: "deploy", Summary: "Deploy v3.2.1", Timestamp: inc.CreatedAt,
 	})
 

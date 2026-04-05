@@ -70,7 +70,7 @@ func (h *SPAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Try to serve the file
 		f, err := h.staticFS.Open(cleanPath)
 		if err == nil {
-			f.Close()
+			_ = f.Close()
 			http.FileServerFS(h.staticFS).ServeHTTP(w, r)
 			return
 		}
@@ -79,5 +79,5 @@ func (h *SPAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// SPA fallback: return index.html for client-side routing
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Write(h.indexHTML)
+	_, _ = w.Write(h.indexHTML)
 }

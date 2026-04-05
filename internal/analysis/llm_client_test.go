@@ -44,12 +44,12 @@ func TestLLMClient_Complete(t *testing.T) {
 
 			// Verify request body
 			var reqBody map[string]any
-			json.NewDecoder(r.Body).Decode(&reqBody)
+			_ = json.NewDecoder(r.Body).Decode(&reqBody) //nolint:errcheck // test: validate field below
 			if reqBody["model"] != "gpt-4" {
 				t.Errorf("expected model gpt-4, got %v", reqBody["model"])
 			}
 
-			json.NewEncoder(w).Encode(mockResp)
+			_ = json.NewEncoder(w).Encode(mockResp)
 		}))
 		defer server.Close()
 
@@ -155,7 +155,7 @@ func TestLLMClient_Complete(t *testing.T) {
 		}
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(mockResp)
+			_ = json.NewEncoder(w).Encode(mockResp)
 		}))
 		defer server.Close()
 

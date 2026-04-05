@@ -34,7 +34,7 @@ func TestChangeQuery_JSONFields(t *testing.T) {
 	q := contract.ChangeQuery{Service: "api-gw", Limit: 10}
 	b, _ := json.Marshal(q)
 	var m map[string]any
-	json.Unmarshal(b, &m)
+	_ = json.Unmarshal(b, &m)
 	if m["service"] != "api-gw" {
 		t.Errorf("service: got %v", m["service"])
 	}
@@ -53,7 +53,7 @@ func TestChangeCorrelation_JSONRoundTrip(t *testing.T) {
 	}
 	b, _ := json.Marshal(cc)
 	var got contract.ChangeCorrelation
-	json.Unmarshal(b, &got)
+	_ = json.Unmarshal(b, &got)
 	if got.IncidentID != 42 || got.Score != 0.85 || len(got.Changes) != 1 {
 		t.Errorf("round-trip mismatch: %+v", got)
 	}
