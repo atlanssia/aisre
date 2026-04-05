@@ -30,7 +30,7 @@ func (h *handler) getTopology(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error(), "TOPOLOGY_ERROR")
 		return
 	}
-	json.NewEncoder(w).Encode(graph)
+	_ = json.NewEncoder(w).Encode(graph)
 }
 
 func (h *handler) getBlastRadius(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +58,7 @@ func (h *handler) getBlastRadius(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error(), "BLAST_RADIUS_ERROR")
 		return
 	}
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (h *handler) addTopologyEdge(w http.ResponseWriter, r *http.Request) {
@@ -85,5 +85,5 @@ func (h *handler) addTopologyEdge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]any{"id": id})
+	_ = json.NewEncoder(w).Encode(map[string]any{"id": id})
 }

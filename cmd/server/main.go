@@ -62,7 +62,7 @@ func run(configPath string) error {
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := store.RunMigrations(db, "migrations"); err != nil {
 		return fmt.Errorf("run migrations: %w", err)

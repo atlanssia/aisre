@@ -45,7 +45,7 @@ func (h *handler) generatePostmortem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(pm)
+	_ = json.NewEncoder(w).Encode(pm)
 }
 
 func (h *handler) listPostmortems(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +62,7 @@ func (h *handler) listPostmortems(w http.ResponseWriter, r *http.Request) {
 	if pms == nil {
 		pms = []contract.Postmortem{}
 	}
-	json.NewEncoder(w).Encode(pms)
+	_ = json.NewEncoder(w).Encode(pms)
 }
 
 func (h *handler) getPostmortem(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +81,7 @@ func (h *handler) getPostmortem(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err.Error(), "NOT_FOUND")
 		return
 	}
-	json.NewEncoder(w).Encode(pm)
+	_ = json.NewEncoder(w).Encode(pm)
 }
 
 func (h *handler) updatePostmortem(w http.ResponseWriter, r *http.Request) {
@@ -114,5 +114,5 @@ func (h *handler) updatePostmortem(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error(), "UPDATE_ERROR")
 		return
 	}
-	json.NewEncoder(w).Encode(pm)
+	_ = json.NewEncoder(w).Encode(pm)
 }

@@ -25,7 +25,7 @@ func setupRCATest(t *testing.T) (*sql.DB, store.IncidentRepo, store.ReportRepo, 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		db.Close()
+		_ = db.Close()
 	})
 	if err := store.RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)
@@ -329,7 +329,7 @@ func TestRCAService_AnalyzeIncident_NoToolResults(t *testing.T) {
 			},
 			"usage": map[string]any{"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -423,7 +423,7 @@ func TestRCAService_AnalyzeIncident_UsesOrchestrator(t *testing.T) {
 			},
 			"usage": map[string]any{"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -497,7 +497,7 @@ func TestRCAService_AnalyzeIncident_OrchestratorFailure_GracefulDegradation(t *t
 			},
 			"usage": map[string]any{"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -554,7 +554,7 @@ func TestRCAService_AnalyzeIncident_NoOrchestrator(t *testing.T) {
 			},
 			"usage": map[string]any{"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -622,7 +622,7 @@ func TestRCAService_FullPipeline(t *testing.T) {
 			},
 			"usage": map[string]any{"prompt_tokens": 200, "completion_tokens": 100, "total_tokens": 300},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

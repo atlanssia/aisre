@@ -25,7 +25,7 @@ func (h *handler) createIncident(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (h *handler) getIncident(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +41,7 @@ func (h *handler) getIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(inc)
+	_ = json.NewEncoder(w).Encode(inc)
 }
 
 func (h *handler) listIncidents(w http.ResponseWriter, r *http.Request) {
@@ -78,10 +78,10 @@ func (h *handler) listIncidents(w http.ResponseWriter, r *http.Request) {
 	if items == nil {
 		items = []contract.Incident{}
 	}
-	json.NewEncoder(w).Encode(items)
+	_ = json.NewEncoder(w).Encode(items)
 }
 
 func writeError(w http.ResponseWriter, status int, msg, code string) {
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(contract.ErrorResponse{Error: msg, Code: code})
+	_ = json.NewEncoder(w).Encode(contract.ErrorResponse{Error: msg, Code: code})
 }

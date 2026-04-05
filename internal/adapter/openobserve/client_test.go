@@ -41,7 +41,7 @@ func TestClient_SearchLogs(t *testing.T) {
 			"took":      15,
 			"scan_size": 1024,
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -88,7 +88,7 @@ func TestClient_SearchTrace(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -124,7 +124,7 @@ func TestClient_QueryMetric(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

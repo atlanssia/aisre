@@ -52,7 +52,7 @@ func (h *handler) getSimilar(w http.ResponseWriter, r *http.Request) {
 		results = []contract.SimilarResult{}
 	}
 
-	json.NewEncoder(w).Encode(results)
+	_ = json.NewEncoder(w).Encode(results)
 }
 
 func (h *handler) computeEmbedding(w http.ResponseWriter, r *http.Request) {

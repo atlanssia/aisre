@@ -52,7 +52,7 @@ func newMockEmbeddingServer(t *testing.T, vector []float64) *httptest.Server {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 	return httptest.NewServer(handler)
 }

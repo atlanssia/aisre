@@ -14,7 +14,7 @@ func TestMigrateCreatesTables(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	err = RunMigrations(db, "../../migrations")
 	if err != nil {
@@ -40,7 +40,7 @@ func TestMigrateIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Run migrations twice — should not error
 	if err := RunMigrations(db, "../../migrations"); err != nil {
@@ -67,7 +67,7 @@ func TestMigrateCreatesIndexes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)

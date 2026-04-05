@@ -49,7 +49,7 @@ func (h *handler) listChanges(w http.ResponseWriter, r *http.Request) {
 	if results == nil {
 		results = []contract.ChangeEvent{}
 	}
-	json.NewEncoder(w).Encode(results)
+	_ = json.NewEncoder(w).Encode(results)
 }
 
 func (h *handler) getChangesForIncident(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +70,7 @@ func (h *handler) getChangesForIncident(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, err.Error(), "CHANGE_ERROR")
 		return
 	}
-	json.NewEncoder(w).Encode(corr)
+	_ = json.NewEncoder(w).Encode(corr)
 }
 
 func (h *handler) ingestChange(w http.ResponseWriter, r *http.Request) {
@@ -92,5 +92,5 @@ func (h *handler) ingestChange(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]any{"id": id})
+	_ = json.NewEncoder(w).Encode(map[string]any{"id": id})
 }

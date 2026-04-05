@@ -33,7 +33,7 @@ func (h *handler) listPromptTemplates(w http.ResponseWriter, r *http.Request) {
 	if templates == nil {
 		templates = []contract.PromptTemplate{}
 	}
-	json.NewEncoder(w).Encode(templates)
+	_ = json.NewEncoder(w).Encode(templates)
 }
 
 func (h *handler) getPromptTemplate(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +51,7 @@ func (h *handler) getPromptTemplate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err.Error(), "NOT_FOUND")
 		return
 	}
-	json.NewEncoder(w).Encode(tpl)
+	_ = json.NewEncoder(w).Encode(tpl)
 }
 
 func (h *handler) createPromptTemplate(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +74,7 @@ func (h *handler) createPromptTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(tpl)
+	_ = json.NewEncoder(w).Encode(tpl)
 }
 
 func (h *handler) updatePromptTemplate(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +97,7 @@ func (h *handler) updatePromptTemplate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error(), "VALIDATION_ERROR")
 		return
 	}
-	json.NewEncoder(w).Encode(tpl)
+	_ = json.NewEncoder(w).Encode(tpl)
 }
 
 func (h *handler) dryRunPromptTemplate(w http.ResponseWriter, r *http.Request) {
@@ -120,5 +120,5 @@ func (h *handler) dryRunPromptTemplate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error(), "DRYRUN_ERROR")
 		return
 	}
-	json.NewEncoder(w).Encode(result)
+	_ = json.NewEncoder(w).Encode(result)
 }
