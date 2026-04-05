@@ -38,7 +38,7 @@ func TestProviderAdapter_SearchLogs(t *testing.T) {
 			"hits": []map[string]any{
 				{
 					"_timestamp": float64(time.Now().UnixMicro()),
-					"log":        "connection refused to redis:6379",
+					"message":    "connection refused to redis:6379",
 					"service":    "api-gateway",
 					"level":      "error",
 					"trace_id":   "abc-123",

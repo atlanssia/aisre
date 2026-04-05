@@ -182,10 +182,20 @@ func (c *Client) QueryMetric(ctx context.Context, q MetricQuery) ([]contract.Too
 
 	var results []contract.ToolResult
 	for _, hit := range resp.Hits {
+		level := extractString(hit, "level")
+		cnt := fmt.Sprintf("%v", hit["cnt"])
+		service := extractString(hit, "service")
+		summary := fmt.Sprintf("%s: %s events (%s)", service, cnt, level)
+		score := 0.5
+		if level == "error" || level == "fatal" {
+			score = 0.8
+		} else if level == "warn" || level == "warning" {
+			score = 0.6
+		}
 		results = append(results, contract.ToolResult{
 			Name:    "metric_anomaly",
-			Summary: extractString(hit, "metric") + " = " + fmt.Sprintf("%v", hit["value"]),
-			Score:   0.6,
+			Summary: summary,
+			Score:   score,
 			Payload: hit,
 		})
 	}
@@ -264,7 +274,7 @@ func (c *Client) buildLogSQL(q LogQuery) string {
 		conditions = append(conditions, fmt.Sprintf("service = '%s'", sanitize(q.Service)))
 	}
 	for _, kw := range q.Keywords {
-		conditions = append(conditions, fmt.Sprintf("log LIKE '%%%s%%'", sanitize(kw)))
+		conditions = append(conditions, fmt.Sprintf("message LIKE '%%%s%%'", sanitize(kw)))
 	}
 	if len(conditions) > 0 {
 		sql += " WHERE " + conditions[0]
@@ -297,7 +307,7 @@ func (c *Client) buildTraceSQL(q TraceQuery) string {
 		}
 		sql += cond
 	}
-	sql += " ORDER BY duration DESC"
+	sql += " ORDER BY duration_ms DESC"
 	if q.Limit > 0 {
 		sql += fmt.Sprintf(" LIMIT %d", q.Limit)
 	}
@@ -305,12 +315,21 @@ func (c *Client) buildTraceSQL(q TraceQuery) string {
 }
 
 // buildMetricSQL constructs the SQL query for metric searches with sanitized inputs.
+// OO streams are schema-less; we aggregate by level to detect error rate anomalies
+// rather than assuming a specific metric column exists.
 func (c *Client) buildMetricSQL(q MetricQuery) string {
-	sql := fmt.Sprintf("SELECT * FROM \"%s\" WHERE service = '%s'", sanitize(q.Stream), sanitize(q.Service))
-	if q.Metric != "" {
-		sql += fmt.Sprintf(" AND metric = '%s'", sanitize(q.Metric))
+	sql := fmt.Sprintf("SELECT level, count(*) as cnt, service FROM \"%s\"", sanitize(q.Stream))
+	var conditions []string
+	if q.Service != "" {
+		conditions = append(conditions, fmt.Sprintf("service = '%s'", sanitize(q.Service)))
 	}
-	sql += " ORDER BY timestamp DESC LIMIT 20"
+	if len(conditions) > 0 {
+		sql += " WHERE " + conditions[0]
+		for _, cond := range conditions[1:] {
+			sql += " AND " + cond
+		}
+	}
+	sql += " GROUP BY level, service ORDER BY cnt DESC LIMIT 20"
 	return sql
 }
 

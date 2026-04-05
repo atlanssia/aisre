@@ -62,8 +62,7 @@ func TestOOIntegration(t *testing.T) {
 }
 
 // ooIsReachable checks if the OO instance is running by hitting
-// the login endpoint. The /health endpoint is not publicly available
-// in all OO configurations, so we use /auth/login as a liveness probe.
+// the login endpoint.
 func ooIsReachable(t *testing.T, baseURL string) bool {
 	t.Helper()
 	client := &http.Client{Timeout: 3 * time.Second}
@@ -100,9 +99,15 @@ func newOOClient(t *testing.T, baseURL string) *openobserve.Client {
 	return client
 }
 
+// wideTimeRange returns a start/end time in microseconds that covers
+// all ingested test data (up to 30 days back).
+func wideTimeRange() (start, end int64) {
+	now := time.Now()
+	return now.Add(-720 * time.Hour).UnixMicro(), now.UnixMicro()
+}
+
 // testAuth verifies that the client can authenticate against OO.
 func (env *ooTestEnv) testAuth(t *testing.T) {
-	// Login via /auth/login to verify credentials are accepted.
 	loginURL := fmt.Sprintf("%s/auth/login", env.baseURL)
 	body := fmt.Sprintf(`{"name":"%s","password":"%s"}`, defaultOOUser, defaultOOPass)
 
@@ -131,80 +136,87 @@ func (env *ooTestEnv) testAuth(t *testing.T) {
 	}
 }
 
-// testSearchLogs tests the SearchLogs method against real OO.
-//
-// NOTE: This test currently fails with 401 because client.doRequest
-// always prepends "Bearer " to the token, but OO requires "Basic" auth.
-// Additionally, the OO search API expects "query" as a struct with "sql"
-// field, not a plain string. These are known bugs in the adapter that
-// this integration test documents.
-//
-// Once the adapter is fixed, this test should succeed (empty results OK).
+// testSearchLogs verifies SearchLogs can query the real OO instance.
+// Uses a wide time range and keyword "timeout" which exists in the test data.
 func (env *ooTestEnv) testSearchLogs(t *testing.T) {
-	now := time.Now()
+	start, end := wideTimeRange()
 	q := openobserve.LogQuery{
 		Stream:    "default",
-		Keywords:  []string{"error"},
-		StartTime: now.Add(-1 * time.Hour).UnixMicro(),
-		EndTime:   now.UnixMicro(),
+		Keywords:  []string{"timeout"},
+		StartTime: start,
+		EndTime:   end,
 		Limit:     5,
 	}
 
 	results, err := env.client.SearchLogs(context.Background(), q)
 	if err != nil {
-		t.Logf("SearchLogs error (known adapter bug - auth/query format): %v", err)
-		return
+		t.Fatalf("SearchLogs failed: %v", err)
 	}
 
-	t.Logf("SearchLogs returned %d results", len(results))
+	if len(results) == 0 {
+		t.Fatal("SearchLogs returned 0 results, expected at least 1 hit for 'timeout'")
+	}
+
 	for i, r := range results {
 		t.Logf("  [%d] name=%s score=%.2f summary=%.80s", i, r.Name, r.Score, r.Summary)
 	}
+
+	// Verify the result contains "timeout" in the summary.
+	found := false
+	for _, r := range results {
+		if strings.Contains(strings.ToLower(r.Summary), "timeout") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected at least one result containing 'timeout'")
+	}
 }
 
-// testSearchTraces tests the SearchTrace method against real OO.
-// See testSearchLogs for known adapter bugs.
+// testSearchTraces verifies SearchTrace can query the real OO instance.
 func (env *ooTestEnv) testSearchTraces(t *testing.T) {
-	now := time.Now()
+	start, end := wideTimeRange()
 	q := openobserve.TraceQuery{
 		Stream:    "default",
-		StartTime: now.Add(-1 * time.Hour).UnixMicro(),
-		EndTime:   now.UnixMicro(),
+		StartTime: start,
+		EndTime:   end,
 		Limit:     5,
 	}
 
 	results, err := env.client.SearchTrace(context.Background(), q)
 	if err != nil {
-		t.Logf("SearchTrace error (known adapter bug - auth/query format): %v", err)
-		return
+		t.Fatalf("SearchTrace failed: %v", err)
 	}
 
-	t.Logf("SearchTrace returned %d results", len(results))
+	if len(results) == 0 {
+		t.Fatal("SearchTrace returned 0 results, expected at least 1 span")
+	}
+
 	for i, r := range results {
 		t.Logf("  [%d] name=%s score=%.2f summary=%.80s", i, r.Name, r.Score, r.Summary)
 	}
 }
 
-// testQueryMetrics tests the QueryMetric method against real OO.
-// See testSearchLogs for known adapter bugs.
+// testQueryMetrics verifies QueryMetric can aggregate data from the real OO instance.
 func (env *ooTestEnv) testQueryMetrics(t *testing.T) {
-	now := time.Now()
+	start, end := wideTimeRange()
 	q := openobserve.MetricQuery{
 		Stream:    "default",
-		Service:   "test-service",
-		Metric:    "cpu_usage",
-		StartTime: now.Add(-1 * time.Hour).UnixMicro(),
-		EndTime:   now.UnixMicro(),
-		Interval:  "1m",
+		Service:   "payment-service",
+		StartTime: start,
+		EndTime:   end,
 	}
 
 	results, err := env.client.QueryMetric(context.Background(), q)
 	if err != nil {
-		t.Logf("QueryMetric error (known adapter bug - auth/query format): %v", err)
-		return
+		t.Fatalf("QueryMetric failed: %v", err)
 	}
 
-	t.Logf("QueryMetric returned %d results", len(results))
+	if len(results) == 0 {
+		t.Fatal("QueryMetric returned 0 results, expected at least 1 aggregation row")
+	}
+
 	for i, r := range results {
 		t.Logf("  [%d] name=%s score=%.2f summary=%.80s", i, r.Name, r.Score, r.Summary)
 	}

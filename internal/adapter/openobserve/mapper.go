@@ -1,12 +1,14 @@
 package openobserve
 
 import (
+	"fmt"
+
 	"github.com/atlanssia/aisre/internal/contract"
 )
 
 // mapLogHit maps a raw OO log hit to a ToolResult.
 func mapLogHit(hit map[string]any, score float64) contract.ToolResult {
-	summary := extractString(hit, "log")
+	summary := extractString(hit, "message")
 	if len(summary) > 200 {
 		summary = summary[:200] + "..."
 	}
@@ -20,10 +22,10 @@ func mapLogHit(hit map[string]any, score float64) contract.ToolResult {
 
 // mapSpan maps a raw OO span to a ToolResult.
 func mapSpan(span map[string]any, score float64) contract.ToolResult {
-	serviceName := extractString(span, "service_name")
-	operation := extractString(span, "operation_name")
-	duration := extractString(span, "duration")
-	summary := serviceName + " " + operation + " " + duration
+	serviceName := extractString(span, "service")
+	operation := extractString(span, "span_id")
+	duration := fmt.Sprintf("%v", span["duration_ms"])
+	summary := serviceName + " " + operation + " " + duration + "ms"
 	return contract.ToolResult{
 		Name:    "slowest_span",
 		Summary: summary,

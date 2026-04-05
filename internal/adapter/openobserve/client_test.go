@@ -24,14 +24,14 @@ func TestClient_SearchLogs(t *testing.T) {
 			"hits": []map[string]any{
 				{
 					"_timestamp":  float64(time.Now().UnixMicro()),
-					"log":         "connection refused to redis:6379",
+					"message":     "connection refused to redis:6379",
 					"service":     "api-gateway",
 					"level":       "error",
 					"trace_id":    "abc-123",
 				},
 				{
 					"_timestamp":  float64(time.Now().UnixMicro()),
-					"log":         "timeout waiting for redis response",
+					"message":     "timeout waiting for redis response",
 					"service":     "api-gateway",
 					"level":       "error",
 					"trace_id":    "abc-123",
@@ -80,11 +80,11 @@ func TestClient_SearchTrace(t *testing.T) {
 		resp := map[string]any{
 			"hits": []map[string]any{
 				{
-					"trace_id":      "abc-123",
-					"service_name":  "api-gateway",
-					"operation_name": "GET /api/payments",
-					"duration":      "2.5s",
-					"status":        "error",
+					"trace_id":     "abc-123",
+					"service":      "api-gateway",
+					"span_id":      "GET /api/payments",
+					"duration_ms":  float64(2500),
+					"status_code":  float64(500),
 				},
 			},
 		}
@@ -201,7 +201,7 @@ func TestMapLogHit_Truncation(t *testing.T) {
 	for i := range longLog {
 		longLog[i] = 'a'
 	}
-	hit := map[string]any{"log": string(longLog)}
+	hit := map[string]any{"message": string(longLog)}
 	result := mapLogHit(hit, 0.5)
 	if len(result.Summary) > 203 { // 200 + "..."
 		t.Errorf("summary should be truncated, got len %d: %s", len(result.Summary), result.Summary)
@@ -209,7 +209,7 @@ func TestMapLogHit_Truncation(t *testing.T) {
 }
 
 func TestMapLogHit_Short(t *testing.T) {
-	hit := map[string]any{"log": "short message"}
+	hit := map[string]any{"message": "short message"}
 	result := mapLogHit(hit, 0.9)
 	if result.Summary != "short message" {
 		t.Errorf("expected 'short message', got %s", result.Summary)
@@ -356,14 +356,15 @@ func TestBuildMetricSQL_InjectionPrevention(t *testing.T) {
 			mustContainValue: " OR 1=1",
 		},
 		{
-			name: "metric injection neutralized",
+			name: "metric field no longer used in SQL (GROUP BY aggregation)",
 			query: MetricQuery{
 				Stream:  "default",
 				Service: "api-gateway",
 				Metric:  "'; DROP TABLE metrics;--",
 			},
-			mustNotContain:   "';",
-			mustContainValue: " DROP TABLE metrics--",
+			// buildMetricSQL no longer embeds Metric in SQL (uses GROUP BY aggregation)
+			mustNotContain:   "DROP TABLE",
+			mustContainValue: "GROUP BY",
 		},
 	}
 
@@ -382,15 +383,15 @@ func TestBuildMetricSQL_InjectionPrevention(t *testing.T) {
 
 func TestMapSpan(t *testing.T) {
 	span := map[string]any{
-		"service_name":   "api-gateway",
-		"operation_name": "GET /api/payments",
-		"duration":       "2.5s",
+		"service":     "api-gateway",
+		"span_id":     "GET /api/payments",
+		"duration_ms": float64(2500),
 	}
 	result := mapSpan(span, 0.8)
 	if result.Score != 0.8 {
 		t.Errorf("expected 0.8, got %f", result.Score)
 	}
-	expected := "api-gateway GET /api/payments 2.5s"
+	expected := "api-gateway GET /api/payments 2500ms"
 	if result.Summary != expected {
 		t.Errorf("expected %q, got %q", expected, result.Summary)
 	}
