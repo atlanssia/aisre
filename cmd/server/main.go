@@ -41,10 +41,10 @@ func run(configPath string) error {
 	viper.SetConfigFile(configPath)
 	viper.AutomaticEnv()
 	// Bind env vars for embedding config (AutomaticEnv alone doesn't map underscores to dots)
-	viper.BindEnv("embedding.base_url", "EMBEDDING_BASE_URL")
-	viper.BindEnv("embedding.api_key", "EMBEDDING_API_KEY")
-	viper.BindEnv("embedding.model", "EMBEDDING_MODEL")
-	viper.BindEnv("embedding.dimensions", "EMBEDDING_DIMENSIONS")
+	_ = viper.BindEnv("embedding.base_url", "EMBEDDING_BASE_URL")
+	_ = viper.BindEnv("embedding.api_key", "EMBEDDING_API_KEY")
+	_ = viper.BindEnv("embedding.model", "EMBEDDING_MODEL")
+	_ = viper.BindEnv("embedding.dimensions", "EMBEDDING_DIMENSIONS")
 	if err := viper.ReadInConfig(); err != nil {
 		return fmt.Errorf("read config: %w", err)
 	}

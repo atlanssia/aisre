@@ -221,7 +221,7 @@ func TestEscalate_AlreadyEscalated(t *testing.T) {
 	group, _ := svc.Ingest(context.Background(), contract.IncomingAlert{
 		Title: "Test Alert", Severity: "high", Labels: map[string]string{"svc": "api"},
 	})
-	svc.Escalate(context.Background(), group.ID)
+	_, _ = svc.Escalate(context.Background(), group.ID)
 
 	_, err := svc.Escalate(context.Background(), group.ID)
 	if err == nil {
@@ -242,8 +242,8 @@ func TestList_DefaultLimit(t *testing.T) {
 	svc := NewService(repo, &mockIncidentSvc{})
 
 	// Create 2 groups
-	svc.Ingest(context.Background(), contract.IncomingAlert{Title: "A", Labels: map[string]string{"a": "1"}})
-	svc.Ingest(context.Background(), contract.IncomingAlert{Title: "B", Labels: map[string]string{"b": "2"}})
+	_, _ = svc.Ingest(context.Background(), contract.IncomingAlert{Title: "A", Labels: map[string]string{"a": "1"}})
+	_, _ = svc.Ingest(context.Background(), contract.IncomingAlert{Title: "B", Labels: map[string]string{"b": "2"}})
 
 	groups, err := svc.List(context.Background(), contract.AlertGroupFilter{})
 	if err != nil {

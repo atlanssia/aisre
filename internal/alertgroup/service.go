@@ -182,7 +182,7 @@ func computeFingerprint(labels map[string]string) string {
 
 	h := sha256.New()
 	for _, k := range keys {
-		fmt.Fprintf(h, "%s=%s\n", k, labels[k])
+		_, _ = fmt.Fprintf(h, "%s=%s\n", k, labels[k])
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
