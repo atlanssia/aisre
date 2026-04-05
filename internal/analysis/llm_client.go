@@ -137,7 +137,7 @@ func (c *LLMClient) Complete(ctx context.Context, messages []Message) (*LLMRespo
 	if err != nil {
 		return nil, fmt.Errorf("llm_client: send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

@@ -36,7 +36,7 @@ func TestEmbeddingClient_Embed(t *testing.T) {
 				"model": "text-embedding-test",
 				"usage": map[string]any{"prompt_tokens": 10, "total_tokens": 10},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}))
 		defer server.Close()
 

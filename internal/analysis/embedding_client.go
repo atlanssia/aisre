@@ -91,7 +91,7 @@ func (c *EmbeddingClient) Embed(ctx context.Context, texts []string) ([][]float6
 	if err != nil {
 		return nil, fmt.Errorf("embedding_client: send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

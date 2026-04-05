@@ -80,7 +80,7 @@ func TestLLMClient_Complete(t *testing.T) {
 	t.Run("server error", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error":{"message":"internal server error"}}`))
+			_, _ = w.Write([]byte(`{"error":{"message":"internal server error"}}`))
 		}))
 		defer server.Close()
 
@@ -101,7 +101,7 @@ func TestLLMClient_Complete(t *testing.T) {
 	t.Run("rate limit error", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte(`{"error":{"message":"rate limit exceeded"}}`))
+			_, _ = w.Write([]byte(`{"error":{"message":"rate limit exceeded"}}`))
 		}))
 		defer server.Close()
 
