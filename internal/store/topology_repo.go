@@ -36,7 +36,7 @@ func (r *sqliteTopologyRepo) List(ctx context.Context) ([]TopologyEdge, error) {
 	if err != nil {
 		return nil, fmt.Errorf("topology_repo: list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []TopologyEdge
 	for rows.Next() {
@@ -58,7 +58,7 @@ func (r *sqliteTopologyRepo) ListBySource(ctx context.Context, source string) ([
 	if err != nil {
 		return nil, fmt.Errorf("topology_repo: list by source: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []TopologyEdge
 	for rows.Next() {

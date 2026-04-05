@@ -20,7 +20,7 @@ func setupService(t *testing.T) *Service {
 	}
 	t.Cleanup(func() {
 		_ = db.Close()
-		os.Remove(dbPath)
+		_ = os.Remove(dbPath)
 	})
 	if err := store.RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)

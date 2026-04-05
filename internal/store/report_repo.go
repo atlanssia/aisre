@@ -192,7 +192,7 @@ func (r *sqliteEvidenceRepo) ListByReport(ctx context.Context, reportID int64) (
 	if err != nil {
 		return nil, fmt.Errorf("evidence_repo: list by report: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []Evidence
 	for rows.Next() {
