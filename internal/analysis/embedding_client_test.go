@@ -68,7 +68,7 @@ func TestEmbeddingClient_Embed(t *testing.T) {
 	t.Run("API error", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte(`{"error": "rate limited"}`))
+			_, _ = w.Write([]byte(`{"error": "rate limited"}`))
 		}))
 		defer server.Close()
 

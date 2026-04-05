@@ -66,7 +66,7 @@ func (r *sqlitePostmortemRepo) List(ctx context.Context) ([]Postmortem, error) {
 	if err != nil {
 		return nil, fmt.Errorf("postmortem_repo: list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []Postmortem
 	for rows.Next() {

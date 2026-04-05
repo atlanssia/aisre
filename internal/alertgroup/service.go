@@ -144,7 +144,7 @@ func (s *Service) Escalate(ctx context.Context, id int64) (*contract.EscalateRes
 	serviceName := "unknown"
 	var labels map[string]string
 	if group.Labels != "" {
-		json.Unmarshal([]byte(group.Labels), &labels)
+		_ = json.Unmarshal([]byte(group.Labels), &labels)
 	}
 	if v, ok := labels["service"]; ok {
 		serviceName = v
@@ -190,7 +190,7 @@ func computeFingerprint(labels map[string]string) string {
 func storeToContract(ag *store.AlertGroup) contract.AlertGroup {
 	var labels map[string]string
 	if ag.Labels != "" {
-		json.Unmarshal([]byte(ag.Labels), &labels)
+		_ = json.Unmarshal([]byte(ag.Labels), &labels)
 	}
 	return contract.AlertGroup{
 		ID:          ag.ID,

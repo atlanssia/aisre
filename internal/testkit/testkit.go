@@ -54,11 +54,11 @@ func NewTestDB(t *testing.T) (*sql.DB, func()) {
 
 	migrationsPath := resolveMigrationsPath(t)
 	if err := store.RunMigrations(db, migrationsPath); err != nil {
-		db.Close()
+		_ = db.Close()
 		t.Fatalf("testkit: run migrations: %v", err)
 	}
 
-	return db, func() { db.Close() }
+	return db, func() { _ = db.Close() }
 }
 
 // resolveMigrationsPath locates the migrations directory relative to this file.

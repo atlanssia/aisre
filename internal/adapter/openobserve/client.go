@@ -187,9 +187,10 @@ func (c *Client) QueryMetric(ctx context.Context, q MetricQuery) ([]contract.Too
 		service := extractString(hit, "service")
 		summary := fmt.Sprintf("%s: %s events (%s)", service, cnt, level)
 		score := 0.5
-		if level == "error" || level == "fatal" {
+		switch level {
+		case "error", "fatal":
 			score = 0.8
-		} else if level == "warn" || level == "warning" {
+		case "warn", "warning":
 			score = 0.6
 		}
 		results = append(results, contract.ToolResult{

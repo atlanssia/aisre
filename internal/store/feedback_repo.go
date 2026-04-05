@@ -42,7 +42,7 @@ func (r *sqliteFeedbackRepo) ListByReport(ctx context.Context, reportID int64) (
 	if err != nil {
 		return nil, fmt.Errorf("feedback_repo: list by report: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []Feedback
 	for rows.Next() {

@@ -18,7 +18,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 	}
 	t.Cleanup(func() {
 		_ = db.Close()
-		_ = os.Remove(dbPath)
+		os.Remove(dbPath)
 	})
 	if err := RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func TestIncidentRepo_GetByID(t *testing.T) {
 		Severity:    "high",
 		Status:      "open",
 	}
-	id, _ := repo.Create(ctx, inc)
+	id, err := repo.Create(ctx, inc)
 
 	got, err := repo.GetByID(ctx, id)
 	if err != nil {

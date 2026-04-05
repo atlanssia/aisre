@@ -41,7 +41,7 @@ func TestClient_SearchLogs(t *testing.T) {
 			"took":      15,
 			"scan_size": 1024,
 		}
-		_ = json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -88,7 +88,7 @@ func TestClient_SearchTrace(t *testing.T) {
 				},
 			},
 		}
-		_ = json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -124,7 +124,7 @@ func TestClient_QueryMetric(t *testing.T) {
 				},
 			},
 		}
-		_ = json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -149,7 +149,7 @@ func TestClient_QueryMetric(t *testing.T) {
 func TestClient_SearchLogs_Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "internal error"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "internal error"})
 	}))
 	defer server.Close()
 

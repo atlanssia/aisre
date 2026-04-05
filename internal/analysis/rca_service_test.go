@@ -154,7 +154,7 @@ func TestRCAService_AnalyzeIncident(t *testing.T) {
 	t.Run("LLM failure", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error":{"message":"internal server error"}}`))
+			_, _ = w.Write([]byte(`{"error":{"message":"internal server error"}}`))
 		}))
 		defer server.Close()
 

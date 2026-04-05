@@ -45,7 +45,7 @@ func TestProviderAdapter_SearchLogs(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -92,7 +92,7 @@ func TestProviderAdapter_SearchLogs_EmptyHits(t *testing.T) {
 		resp := map[string]any{
 			"hits": []map[string]any{},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -140,7 +140,7 @@ func TestProviderAdapter_GetTrace(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -186,7 +186,7 @@ func TestProviderAdapter_GetTrace_NotFound(t *testing.T) {
 		resp := map[string]any{
 			"hits": []map[string]any{},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -225,7 +225,7 @@ func TestProviderAdapter_QueryMetric(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -265,7 +265,7 @@ func TestProviderAdapter_QueryMetric_EmptyHits(t *testing.T) {
 		resp := map[string]any{
 			"hits": []map[string]any{},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

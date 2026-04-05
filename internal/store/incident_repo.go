@@ -87,7 +87,7 @@ func (r *sqliteIncidentRepo) List(ctx context.Context, filter IncidentFilter) ([
 	if err != nil {
 		return nil, fmt.Errorf("incident_repo: list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []Incident
 	for rows.Next() {
