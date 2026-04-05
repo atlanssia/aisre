@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -40,7 +41,7 @@ func (r *sqliteIncidentRepo) GetByID(ctx context.Context, id int64) (*Incident, 
 		`SELECT id, source, service_name, severity, status, trace_id, created_at
 		 FROM incidents WHERE id = ?`, id,
 	).Scan(&inc.ID, &inc.Source, &inc.ServiceName, &inc.Severity, &inc.Status, &inc.TraceID, &inc.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("incident_repo: incident %d not found", id)
 	}
 	if err != nil {

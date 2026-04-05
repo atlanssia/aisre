@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -34,7 +35,7 @@ func (r *sqliteChangeRepo) GetByID(ctx context.Context, id int64) (*Change, erro
 		`SELECT id, service, change_type, summary, author, timestamp, metadata, created_at
 		 FROM changes WHERE id = ?`, id,
 	).Scan(&ch.ID, &ch.Service, &ch.ChangeType, &ch.Summary, &ch.Author, &ch.Timestamp, &ch.Metadata, &ch.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("change_repo: change %d not found", id)
 	}
 	if err != nil {

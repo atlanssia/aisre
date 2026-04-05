@@ -107,8 +107,11 @@ func (c *EmbeddingClient) Embed(ctx context.Context, texts []string) ([][]float6
 		return nil, fmt.Errorf("embedding_client: unmarshal response: %w", err)
 	}
 
-	result := make([][]float64, len(embResp.Data))
+	result := make([][]float64, len(texts))
 	for _, d := range embResp.Data {
+		if d.Index < 0 || d.Index >= len(result) {
+			return nil, fmt.Errorf("embedding_client: invalid index %d in response", d.Index)
+		}
 		result[d.Index] = d.Embedding
 	}
 	return result, nil

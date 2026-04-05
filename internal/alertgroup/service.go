@@ -140,9 +140,21 @@ func (s *Service) Escalate(ctx context.Context, id int64) (*contract.EscalateRes
 		return nil, fmt.Errorf("alertgroup: already escalated")
 	}
 
+	// Extract service name from labels, fallback to "unknown".
+	serviceName := "unknown"
+	var labels map[string]string
+	if group.Labels != "" {
+		json.Unmarshal([]byte(group.Labels), &labels)
+	}
+	if v, ok := labels["service"]; ok {
+		serviceName = v
+	} else if v, ok := labels["service_name"]; ok {
+		serviceName = v
+	}
+
 	inc, err := s.incidentSvc.CreateIncident(ctx, contract.CreateIncidentRequest{
 		Source:   "alertgroup",
-		Service:  "alert-group",
+		Service:  serviceName,
 		Severity: group.Severity,
 	})
 	if err != nil {

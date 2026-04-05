@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -34,7 +35,7 @@ func (r *sqlitePromptTemplateRepo) GetByID(ctx context.Context, id int64) (*Prom
 		`SELECT id, name, stage, system_tpl, user_tpl, variables, is_default, version, created_at, updated_at
 		 FROM prompt_templates WHERE id = ?`, id,
 	).Scan(&tpl.ID, &tpl.Name, &tpl.Stage, &tpl.SystemTpl, &tpl.UserTpl, &tpl.Variables, &isDefault, &tpl.Version, &tpl.CreatedAt, &tpl.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("prompt_template_repo: template %d not found", id)
 	}
 	if err != nil {
@@ -92,7 +93,7 @@ func (r *sqlitePromptTemplateRepo) GetByStage(ctx context.Context, stage string)
 		`SELECT id, name, stage, system_tpl, user_tpl, variables, is_default, version, created_at, updated_at
 		 FROM prompt_templates WHERE stage = ? AND is_default = 1 LIMIT 1`, stage,
 	).Scan(&tpl.ID, &tpl.Name, &tpl.Stage, &tpl.SystemTpl, &tpl.UserTpl, &tpl.Variables, &isDefault, &tpl.Version, &tpl.CreatedAt, &tpl.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil // no default template for this stage
 	}
 	if err != nil {

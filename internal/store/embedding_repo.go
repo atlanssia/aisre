@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -33,7 +34,7 @@ func (r *sqliteEmbeddingRepo) GetByIncidentID(ctx context.Context, incidentID in
 		`SELECT incident_id, service, embedding, model, created_at
 		 FROM incident_embeddings WHERE incident_id = ?`, incidentID,
 	).Scan(&e.IncidentID, &e.Service, &e.Embedding, &e.Model, &e.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("embedding_repo: embedding for incident %d not found", incidentID)
 	}
 	if err != nil {

@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 )
 
 // sqliteReportRepo implements the ReportRepo interface with SQLite backend.
@@ -41,7 +43,7 @@ func (r *sqliteReportRepo) GetByID(ctx context.Context, id int64) (*Report, erro
 		 FROM rca_reports WHERE id = ?`, id,
 	).Scan(&report.ID, &report.IncidentID, &report.Summary, &report.RootCause,
 		&report.Confidence, &report.ReportJSON, &report.Status, &report.CreatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("report_repo: report %d not found", id)
 	}
 	if err != nil {
@@ -58,6 +60,10 @@ func (r *sqliteReportRepo) List(ctx context.Context, filter ReportFilter) ([]Rep
 			  WHERE 1=1`
 	args := []any{}
 
+	if filter.IncidentID != 0 {
+		query += " AND r.incident_id = ?"
+		args = append(args, filter.IncidentID)
+	}
 	if filter.Service != "" {
 		query += " AND i.service_name = ?"
 		args = append(args, filter.Service)
@@ -105,7 +111,9 @@ func (r *sqliteReportRepo) Search(ctx context.Context, query string, filter Repo
 		  FROM rca_reports r
 		  JOIN incidents i ON r.incident_id = i.id
 		  WHERE (r.summary LIKE ? OR r.root_cause LIKE ?)`
-	args := []any{"%" + query + "%", "%" + query + "%"}
+	escaped := strings.ReplaceAll(query, "%", "\\%")
+	escaped = strings.ReplaceAll(escaped, "_", "\\_")
+	args := []any{"%" + escaped + "%", "%" + escaped + "%"}
 
 	if filter.Service != "" {
 		q += " AND i.service_name = ?"

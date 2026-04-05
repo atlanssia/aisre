@@ -53,5 +53,8 @@ func (r *sqliteFeedbackRepo) ListByReport(ctx context.Context, reportID int64) (
 		}
 		items = append(items, fb)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("feedback_repo: list rows: %w", err)
+	}
 	return items, nil
 }

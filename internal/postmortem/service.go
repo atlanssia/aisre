@@ -18,20 +18,6 @@ type IncidentLookup interface {
 	GetIncident(ctx context.Context, id int64) (*contract.Incident, error)
 }
 
-// ReportLookup defines the interface needed to fetch report details.
-type ReportLookup interface {
-	GetReport(ctx context.Context, reportID int64) (*contract.ReportResponse, error)
-}
-
-// EvidenceLookup defines the interface needed to fetch evidence for a report.
-type EvidenceLookup interface {
-	GetEvidence(ctx context.Context, reportID int64) ([]contract.EvidenceItem, error)
-}
-
-// FeedbackLookup defines the interface needed to fetch feedback for a report.
-type FeedbackLookup interface {
-	ListByReport(ctx context.Context, reportID int64) ([]store.Feedback, error)
-}
 
 // LLMGenerator defines the interface for LLM text generation.
 type LLMGenerator interface {
@@ -81,21 +67,18 @@ func (s *Service) Generate(ctx context.Context, incidentID int64) (*contract.Pos
 	}
 
 	// Fetch the latest report for this incident
-	reports, err := s.reports.List(ctx, store.ReportFilter{Limit: 1})
+	reports, err := s.reports.List(ctx, store.ReportFilter{IncidentID: incidentID, Limit: 1})
 	if err != nil {
 		return nil, fmt.Errorf("postmortem: generate: list reports: %w", err)
 	}
 	var reportForLLM *contract.ReportResponse
-	for _, r := range reports {
-		if r.IncidentID == incidentID {
-			// Build a basic report response
-			reportForLLM = &contract.ReportResponse{
-				ID:        r.ID,
-				IncidentID: r.IncidentID,
-				Summary:   r.Summary,
-				RootCause: r.RootCause,
-			}
-			break
+	if len(reports) > 0 {
+		r := reports[0]
+		reportForLLM = &contract.ReportResponse{
+			ID:         r.ID,
+			IncidentID: r.IncidentID,
+			Summary:    r.Summary,
+			RootCause:  r.RootCause,
 		}
 	}
 

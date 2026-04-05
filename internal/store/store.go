@@ -208,12 +208,13 @@ type AlertGroupFilter struct {
 
 // ReportFilter holds filter parameters for listing reports.
 type ReportFilter struct {
-	Service   string
-	StartTime string
-	EndTime   string
-	Severity  string
-	Limit     int
-	Offset    int
+	IncidentID int64
+	Service    string
+	StartTime  string
+	EndTime    string
+	Severity   string
+	Limit      int
+	Offset     int
 }
 
 // PostmortemRepo defines the persistence interface for postmortems.
