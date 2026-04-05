@@ -8,5 +8,5 @@ import (
 )
 
 func getStaticFS() fs.FS {
-	return os.DirFS("../../web/dist")
+	return os.DirFS("web/dist")
 }
