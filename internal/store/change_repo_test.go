@@ -44,7 +44,7 @@ func TestChangeRepo_ListByFilter(t *testing.T) {
 		{Service: "payment", ChangeType: "deploy", Summary: "Deploy v2", Timestamp: "2025-01-15T11:00:00Z", Metadata: "{}"},
 	}
 	for _, ch := range changes {
-		repo.Create(ctx, ch)
+		_, _ = repo.Create(ctx, ch)
 	}
 
 	// Filter by service

@@ -382,7 +382,7 @@ func (s *RCAService) GetReport(ctx context.Context, reportID int64) (*contract.R
 	for i, ev := range evidenceItems {
 		var payload map[string]any
 		if ev.Payload != "" {
-			json.Unmarshal([]byte(ev.Payload), &payload)
+			_ = json.Unmarshal([]byte(ev.Payload), &payload)
 		}
 		evidence[i] = contract.EvidenceItem{
 			Type:      ev.EvidenceType,
@@ -442,7 +442,7 @@ func (s *RCAService) GetEvidence(ctx context.Context, reportID int64) ([]contrac
 	for i, ev := range items {
 		var payload map[string]any
 		if ev.Payload != "" {
-			json.Unmarshal([]byte(ev.Payload), &payload)
+			_ = json.Unmarshal([]byte(ev.Payload), &payload)
 		}
 		result[i] = contract.EvidenceItem{
 			Type:      ev.EvidenceType,

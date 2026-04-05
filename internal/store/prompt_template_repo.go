@@ -53,7 +53,7 @@ func (r *sqlitePromptTemplateRepo) List(ctx context.Context) ([]PromptTemplate, 
 	if err != nil {
 		return nil, fmt.Errorf("prompt_template_repo: list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []PromptTemplate
 	for rows.Next() {

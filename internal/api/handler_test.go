@@ -52,7 +52,7 @@ func TestCreateIncident(t *testing.T) {
 	}
 
 	var resp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["incident_id"] == nil {
 		t.Error("expected incident_id in response")
 	}
@@ -111,7 +111,7 @@ func TestGetIncident(t *testing.T) {
 	}
 
 	var inc map[string]any
-	json.Unmarshal(w.Body.Bytes(), &inc)
+	_ = json.Unmarshal(w.Body.Bytes(), &inc)
 	if inc["service_name"] != "svc" {
 		t.Errorf("expected svc, got %v", inc["service_name"])
 	}
@@ -164,7 +164,7 @@ func TestListIncidents(t *testing.T) {
 	}
 
 	var items []map[string]any
-	json.Unmarshal(w.Body.Bytes(), &items)
+	_ = json.Unmarshal(w.Body.Bytes(), &items)
 	if len(items) != 2 {
 		t.Errorf("expected 2 items, got %d", len(items))
 	}

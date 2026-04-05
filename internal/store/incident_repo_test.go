@@ -18,7 +18,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 	}
 	t.Cleanup(func() {
 		_ = db.Close()
-		os.Remove(dbPath)
+		_ = os.Remove(dbPath)
 	})
 	if err := RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)
@@ -59,6 +59,9 @@ func TestIncidentRepo_GetByID(t *testing.T) {
 		Status:      "open",
 	}
 	id, err := repo.Create(ctx, inc)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	got, err := repo.GetByID(ctx, id)
 	if err != nil {
@@ -89,7 +92,7 @@ func TestIncidentRepo_List(t *testing.T) {
 	ctx := context.Background()
 
 	for i := 0; i < 3; i++ {
-		repo.Create(ctx, &Incident{
+		_, _ = repo.Create(ctx, &Incident{
 			Source:      "prometheus",
 			ServiceName: "svc-" + string(rune('a'+i)),
 			Severity:    "high",
@@ -111,8 +114,8 @@ func TestIncidentRepo_List_FilterByService(t *testing.T) {
 	repo := NewIncidentRepo(db)
 	ctx := context.Background()
 
-	repo.Create(ctx, &Incident{Source: "test", ServiceName: "api-gateway", Severity: "high", Status: "open"})
-	repo.Create(ctx, &Incident{Source: "test", ServiceName: "payment-svc", Severity: "low", Status: "open"})
+	_, _ = repo.Create(ctx, &Incident{Source: "test", ServiceName: "api-gateway", Severity: "high", Status: "open"})
+	_, _ = repo.Create(ctx, &Incident{Source: "test", ServiceName: "payment-svc", Severity: "low", Status: "open"})
 
 	items, err := repo.List(ctx, IncidentFilter{Service: "api-gateway", Limit: 10})
 	if err != nil {

@@ -117,7 +117,7 @@ func (s *Service) IngestChange(ctx context.Context, evt contract.ChangeEvent) (i
 func storeChangeToContract(ch store.Change) contract.ChangeEvent {
 	var metadata map[string]any
 	if ch.Metadata != "" && ch.Metadata != "{}" {
-		json.Unmarshal([]byte(ch.Metadata), &metadata)
+		_ = json.Unmarshal([]byte(ch.Metadata), &metadata)
 	}
 	return contract.ChangeEvent{
 		ID:         ch.ID,

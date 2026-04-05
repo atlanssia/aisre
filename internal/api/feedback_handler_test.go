@@ -58,7 +58,7 @@ func createIncidentAndReport(t *testing.T, router http.Handler) string {
 	}
 
 	var incResp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &incResp)
+	_ = json.Unmarshal(w.Body.Bytes(), &incResp)
 	incidentID := jsonFloatToString(incResp["incident_id"])
 
 	req = httptest.NewRequest("POST", "/api/v1/incidents/"+incidentID+"/analyze", nil)
@@ -70,7 +70,7 @@ func createIncidentAndReport(t *testing.T, router http.Handler) string {
 	}
 
 	var analysisResp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &analysisResp)
+	_ = json.Unmarshal(w.Body.Bytes(), &analysisResp)
 	return jsonFloatToString(analysisResp["id"])
 }
 
@@ -96,7 +96,7 @@ func TestSubmitFeedback(t *testing.T) {
 	}
 
 	var resp contract.FeedbackResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp.ID == 0 {
 		t.Error("expected non-zero id")
 	}
@@ -217,7 +217,7 @@ func TestSearchReports(t *testing.T) {
 	}
 
 	var results []map[string]any
-	json.Unmarshal(w.Body.Bytes(), &results)
+	_ = json.Unmarshal(w.Body.Bytes(), &results)
 	if len(results) == 0 {
 		t.Error("expected at least one search result")
 	}
@@ -252,7 +252,7 @@ func TestSearchReports_WithFilters(t *testing.T) {
 	}
 
 	var results []map[string]any
-	json.Unmarshal(w.Body.Bytes(), &results)
+	_ = json.Unmarshal(w.Body.Bytes(), &results)
 	if len(results) == 0 {
 		t.Error("expected at least one search result with filters")
 	}
@@ -271,7 +271,7 @@ func TestSearchReports_ServiceFilter_NoMatch(t *testing.T) {
 	}
 
 	var results []map[string]any
-	json.Unmarshal(w.Body.Bytes(), &results)
+	_ = json.Unmarshal(w.Body.Bytes(), &results)
 	if len(results) != 0 {
 		t.Errorf("expected 0 results, got %d", len(results))
 	}

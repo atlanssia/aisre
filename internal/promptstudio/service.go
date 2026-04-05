@@ -146,7 +146,7 @@ func (s *Service) DryRun(ctx context.Context, id int64, vars map[string]string) 
 func allowedVars(varsJSON string) map[string]bool {
 	var vars []string
 	if varsJSON != "" {
-		json.Unmarshal([]byte(varsJSON), &vars)
+		_ = json.Unmarshal([]byte(varsJSON), &vars)
 	}
 	m := make(map[string]bool, len(vars))
 	for _, v := range vars {
@@ -196,7 +196,7 @@ func validateTemplate(systemTpl, userTpl string) error {
 func storeToContract(tpl store.PromptTemplate) contract.PromptTemplate {
 	var vars []string
 	if tpl.Variables != "" {
-		json.Unmarshal([]byte(tpl.Variables), &vars)
+		_ = json.Unmarshal([]byte(tpl.Variables), &vars)
 	}
 	return contract.PromptTemplate{
 		ID:        tpl.ID,

@@ -35,7 +35,7 @@ func setupFullServer(t *testing.T) (http.Handler, *httptest.Server) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { _ = db.Close() })
 
 	if err := store.RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func doRequest(t *testing.T, router http.Handler, method, path string, body any)
 
 	var resp map[string]any
 	if w.Body.Len() > 0 {
-		json.Unmarshal(w.Body.Bytes(), &resp)
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	}
 	return w.Code, resp
 }
@@ -108,7 +108,7 @@ func doRequestArray(t *testing.T, router http.Handler, method, path string) (int
 
 	var resp []map[string]any
 	if w.Body.Len() > 0 && w.Body.String() != "null" {
-		json.Unmarshal(w.Body.Bytes(), &resp)
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	}
 	return w.Code, resp
 }

@@ -88,7 +88,7 @@ func (r *sqliteReportRepo) List(ctx context.Context, filter ReportFilter) ([]Rep
 	if err != nil {
 		return nil, fmt.Errorf("report_repo: list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []Report
 	for rows.Next() {
@@ -139,7 +139,7 @@ func (r *sqliteReportRepo) Search(ctx context.Context, query string, filter Repo
 	if err != nil {
 		return nil, fmt.Errorf("report_repo: search: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []Report
 	for rows.Next() {

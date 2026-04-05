@@ -86,7 +86,7 @@ func (m *mockAnalysisService) GetReport(ctx context.Context, reportID int64) (*c
 	for i, ev := range evidenceItems {
 		var payload map[string]any
 		if ev.Payload != "" {
-			json.Unmarshal([]byte(ev.Payload), &payload)
+			_ = json.Unmarshal([]byte(ev.Payload), &payload)
 		}
 		evidence[i] = contract.EvidenceItem{
 			Type: ev.EvidenceType, Score: ev.Score, Payload: payload,
@@ -113,7 +113,7 @@ func (m *mockAnalysisService) GetEvidence(ctx context.Context, reportID int64) (
 	for i, ev := range items {
 		var payload map[string]any
 		if ev.Payload != "" {
-			json.Unmarshal([]byte(ev.Payload), &payload)
+			_ = json.Unmarshal([]byte(ev.Payload), &payload)
 		}
 		result[i] = contract.EvidenceItem{
 			Type: ev.EvidenceType, Score: ev.Score, Payload: payload,
@@ -159,7 +159,7 @@ func TestAnalyzeIncident(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	var incResp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &incResp)
+	_ = json.Unmarshal(w.Body.Bytes(), &incResp)
 	incidentID := jsonFloatToString(incResp["incident_id"])
 
 	// Analyze the incident
@@ -173,7 +173,7 @@ func TestAnalyzeIncident(t *testing.T) {
 	}
 
 	var resp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	if resp["summary"] == nil {
 		t.Error("expected summary in response")
 	}
@@ -225,7 +225,7 @@ func TestGetReport(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	var incResp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &incResp)
+	_ = json.Unmarshal(w.Body.Bytes(), &incResp)
 	incidentID := jsonFloatToString(incResp["incident_id"])
 
 	// Analyze to create a report
@@ -234,7 +234,7 @@ func TestGetReport(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	var analysisResp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &analysisResp)
+	_ = json.Unmarshal(w.Body.Bytes(), &analysisResp)
 	reportID := jsonFloatToString(analysisResp["id"])
 
 	// Get the report
@@ -247,7 +247,7 @@ func TestGetReport(t *testing.T) {
 	}
 
 	var report map[string]any
-	json.Unmarshal(w.Body.Bytes(), &report)
+	_ = json.Unmarshal(w.Body.Bytes(), &report)
 	if report["summary"] == nil {
 		t.Error("expected summary in report")
 	}
@@ -293,7 +293,7 @@ func TestGetEvidence(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	var incResp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &incResp)
+	_ = json.Unmarshal(w.Body.Bytes(), &incResp)
 	incidentID := jsonFloatToString(incResp["incident_id"])
 
 	// Analyze to create a report with evidence
@@ -302,7 +302,7 @@ func TestGetEvidence(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	var analysisResp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &analysisResp)
+	_ = json.Unmarshal(w.Body.Bytes(), &analysisResp)
 	reportID := jsonFloatToString(analysisResp["id"])
 
 	// Get evidence
@@ -315,7 +315,7 @@ func TestGetEvidence(t *testing.T) {
 	}
 
 	var evidence []map[string]any
-	json.Unmarshal(w.Body.Bytes(), &evidence)
+	_ = json.Unmarshal(w.Body.Bytes(), &evidence)
 	if len(evidence) == 0 {
 		t.Error("expected at least one evidence item")
 	}

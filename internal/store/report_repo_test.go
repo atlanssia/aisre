@@ -94,7 +94,7 @@ func TestReportRepo_List(t *testing.T) {
 	})
 
 	for i := 0; i < 3; i++ {
-		repo.Create(ctx, &Report{
+		_, _ = repo.Create(ctx, &Report{
 			IncidentID: incID,
 			Summary:    "summary",
 			RootCause:  "cause",
@@ -161,7 +161,7 @@ func TestEvidenceRepo_ListByReport(t *testing.T) {
 	})
 
 	for i := 0; i < 3; i++ {
-		evidenceRepo.Create(ctx, &Evidence{
+		_, _ = evidenceRepo.Create(ctx, &Evidence{
 			ReportID:     reportID,
 			EvidenceType: "log",
 			Score:        0.8 + float64(i)*0.05,

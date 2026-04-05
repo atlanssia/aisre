@@ -24,7 +24,7 @@ func setupE2E(t *testing.T) http.Handler {
 	}
 	t.Cleanup(func() {
 		_ = db.Close()
-		os.Remove(dbPath)
+		_ = os.Remove(dbPath)
 	})
 	if err := store.RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)
@@ -56,7 +56,7 @@ func TestE2E_IncidentLifecycle(t *testing.T) {
 	}
 
 	var webhookResp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &webhookResp)
+	_ = json.Unmarshal(w.Body.Bytes(), &webhookResp)
 	if webhookResp["incident_id"] == nil {
 		t.Fatal("expected incident_id in webhook response")
 	}
@@ -72,7 +72,7 @@ func TestE2E_IncidentLifecycle(t *testing.T) {
 	}
 
 	var inc map[string]any
-	json.Unmarshal(w.Body.Bytes(), &inc)
+	_ = json.Unmarshal(w.Body.Bytes(), &inc)
 	if inc["service_name"] != "payment-svc" {
 		t.Errorf("expected payment-svc, got %v", inc["service_name"])
 	}
@@ -110,7 +110,7 @@ func TestE2E_IncidentLifecycle(t *testing.T) {
 	}
 
 	var incidents []map[string]any
-	json.Unmarshal(w.Body.Bytes(), &incidents)
+	_ = json.Unmarshal(w.Body.Bytes(), &incidents)
 	if len(incidents) != 2 {
 		t.Errorf("expected 2 incidents, got %d", len(incidents))
 	}
