@@ -24,7 +24,7 @@ func setupE2E(t *testing.T) http.Handler {
 	}
 	t.Cleanup(func() {
 		_ = db.Close()
-		os.Remove(dbPath)
+		_ = os.Remove(dbPath)
 	})
 	if err := store.RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)

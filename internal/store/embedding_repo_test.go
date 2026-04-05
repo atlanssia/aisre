@@ -18,7 +18,7 @@ func setupEmbeddingTestDB(t *testing.T) *sql.DB {
 	}
 	t.Cleanup(func() {
 		_ = db.Close()
-		os.Remove(dbPath)
+		_ = os.Remove(dbPath)
 	})
 	if err := RunMigrations(db, "../../migrations"); err != nil {
 		t.Fatal(err)
