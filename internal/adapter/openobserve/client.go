@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"github.com/atlanssia/aisre/internal/contract"
 )
 
@@ -16,6 +17,7 @@ import (
 type Client struct {
 	baseURL  string
 	orgID   string
+	tokenMu sync.RWMutex
 	token   string
 	username string
 	password string
@@ -84,7 +86,9 @@ func (c *Client) Login(ctx context.Context) error {
 		return fmt.Errorf("openobserve: login succeeded but no access_token returned")
 	}
 
+	c.tokenMu.Lock()
 	c.token = loginResp.AccessToken
+	c.tokenMu.Unlock()
 	c.logger.Info("openobserve: login successful")
 	return nil
 }
@@ -151,6 +155,9 @@ func (c *Client) SearchTrace(ctx context.Context, q TraceQuery) ([]contract.Tool
 	var results []contract.ToolResult
 	for i, hit := range resp.Hits {
 		score := 0.9 - float64(i)*0.1
+		if score < 0 {
+			score = 0
+		}
 		results = append(results, mapSpan(hit, score))
 	}
 	return results, nil
@@ -228,8 +235,11 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body []byte
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if c.token != "" {
-		auth := c.token
+	c.tokenMu.RLock()
+	tok := c.token
+	c.tokenMu.RUnlock()
+	if tok != "" {
+		auth := tok
 		if !strings.HasPrefix(auth, "Basic ") && !strings.HasPrefix(auth, "Bearer ") {
 			auth = "Bearer " + auth
 		}

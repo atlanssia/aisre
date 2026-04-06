@@ -25,7 +25,11 @@ func (r *sqliteAlertGroupRepo) Create(ctx context.Context, ag *AlertGroup) (int6
 	if err != nil {
 		return 0, fmt.Errorf("alert_group_repo: create: %w", err)
 	}
-	return result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("alert_group_repo: last insert id: %w", err)
+	}
+	return id, nil
 }
 
 func (r *sqliteAlertGroupRepo) GetByID(ctx context.Context, id int64) (*AlertGroup, error) {
@@ -103,10 +107,11 @@ func (r *sqliteAlertGroupRepo) List(ctx context.Context, filter AlertGroupFilter
 
 	query += " ORDER BY last_seen DESC"
 
-	if filter.Limit > 0 {
-		query += " LIMIT ?"
-		args = append(args, filter.Limit)
+	if filter.Limit <= 0 {
+		filter.Limit = 100
 	}
+	query += " LIMIT ?"
+	args = append(args, filter.Limit)
 	if filter.Offset > 0 {
 		query += " OFFSET ?"
 		args = append(args, filter.Offset)

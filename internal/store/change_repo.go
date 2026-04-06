@@ -26,7 +26,11 @@ func (r *sqliteChangeRepo) Create(ctx context.Context, ch *Change) (int64, error
 	if err != nil {
 		return 0, fmt.Errorf("change_repo: create: %w", err)
 	}
-	return result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("change_repo: last insert id: %w", err)
+	}
+	return id, nil
 }
 
 func (r *sqliteChangeRepo) GetByID(ctx context.Context, id int64) (*Change, error) {
