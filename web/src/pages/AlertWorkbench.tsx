@@ -1,8 +1,8 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Clock, Server, ChevronRight, RefreshCw, Inbox } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { incidents } from '@/api/client'
+import { useNavigate } from 'react-router-dom'
+import { incidents, reports } from '@/api/client'
 import { SeverityBadge } from '@/components/rca/SeverityBadge'
 import { StatusBadge } from '@/components/rca/StatusBadge'
 import { Spinner } from '@/components/Spinner'
@@ -119,9 +119,31 @@ function StatCard({ label, count, color }: { label: string; count: number; color
 
 function IncidentRow({ incident }: { incident: Incident }) {
   const timeAgo = formatTimeAgo(incident.created_at)
+  const navigate = useNavigate()
+  const { showToast } = useToast()
+  const [analyzing, setAnalyzing] = useState(false)
+
+  async function handleClick() {
+    if (analyzing) return
+    setAnalyzing(true)
+    try {
+      const report = await reports.analyze(incident.id)
+      navigate(`/reports/${report.id}`)
+    } catch (err) {
+      showToast('error', `Analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3 rounded-lg hover:bg-secondary/50 transition-colors group">
+    <div
+      onClick={handleClick}
+      className={cn(
+        'flex items-center gap-4 px-4 py-3 rounded-lg hover:bg-secondary/50 transition-colors group cursor-pointer',
+        analyzing && 'opacity-60 pointer-events-none',
+      )}
+    >
       <SeverityBadge severity={incident.severity} />
       <StatusBadge status={incident.status} />
       <div className="flex-1 min-w-0">
@@ -142,13 +164,11 @@ function IncidentRow({ incident }: { incident: Incident }) {
         <Clock className="h-3 w-3" />
         {timeAgo}
       </div>
-      <Link
-        to={`/incidents/${incident.id}/analyze`}
-        className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 opacity-0 group-hover:opacity-100 transition-all"
-      >
-        Analyze
-      </Link>
-      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+      {analyzing ? (
+        <Spinner size="sm" />
+      ) : (
+        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+      )}
     </div>
   )
 }
