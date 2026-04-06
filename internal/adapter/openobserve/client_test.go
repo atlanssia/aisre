@@ -396,3 +396,14 @@ func TestMapSpan(t *testing.T) {
 		t.Errorf("expected %q, got %q", expected, result.Summary)
 	}
 }
+
+func TestMapSpan_NilDuration(t *testing.T) {
+	span := map[string]any{
+		"service": "api-gateway",
+		"span_id": "GET /api/payments",
+	}
+	result := mapSpan(span, 0.5)
+	if !strings.Contains(result.Summary, "?ms") {
+		t.Errorf("expected ?ms for nil duration, got %q", result.Summary)
+	}
+}
