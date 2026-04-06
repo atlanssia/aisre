@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Clock, Server, ChevronRight, RefreshCw, Inbox } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { incidents } from '@/api/client'
 import { SeverityBadge } from '@/components/rca/SeverityBadge'
 import { StatusBadge } from '@/components/rca/StatusBadge'
@@ -120,7 +121,7 @@ function IncidentRow({ incident }: { incident: Incident }) {
   const timeAgo = formatTimeAgo(incident.created_at)
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer group">
+    <div className="flex items-center gap-4 px-4 py-3 rounded-lg hover:bg-secondary/50 transition-colors group">
       <SeverityBadge severity={incident.severity} />
       <StatusBadge status={incident.status} />
       <div className="flex-1 min-w-0">
@@ -141,6 +142,12 @@ function IncidentRow({ incident }: { incident: Incident }) {
         <Clock className="h-3 w-3" />
         {timeAgo}
       </div>
+      <Link
+        to={`/incidents/${incident.id}/analyze`}
+        className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 opacity-0 group-hover:opacity-100 transition-all"
+      >
+        Analyze
+      </Link>
       <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
     </div>
   )

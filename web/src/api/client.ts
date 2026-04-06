@@ -89,6 +89,15 @@ export const reports = {
     Object.entries(params).forEach(([k, v]) => { if (v) qs.set(k, v) })
     return request<RCAReport[]>(`/reports/search?${qs}`)
   },
+
+  list: (params?: { service?: string; severity?: string; limit?: number }) => {
+    const qs = new URLSearchParams()
+    if (params?.service) qs.set('service', params.service)
+    if (params?.severity) qs.set('severity', params.severity)
+    if (params?.limit) qs.set('limit', String(params.limit))
+    const query = qs.toString()
+    return request<RCAReport[]>(`/reports${query ? `?${query}` : ''}`)
+  },
 }
 
 // Feedback

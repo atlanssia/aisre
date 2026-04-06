@@ -12,17 +12,26 @@ export function History() {
   const [searchTerm, setSearchTerm] = useState('')
   const { showToast } = useToast()
 
-  const { data, isLoading, error } = useQuery({
+  // Default: load all reports; when searching, use search endpoint
+  const listQuery = useQuery({
+    queryKey: ['reports', 'list'],
+    queryFn: () => reports.list(),
+    enabled: !searchTerm,
+  })
+
+  const searchQuery = useQuery({
     queryKey: ['reports', 'search', searchTerm],
     queryFn: () => reports.search({ q: searchTerm }),
     enabled: !!searchTerm,
   })
 
-  const items: RCAReport[] = data ?? []
+  const isLoading = searchTerm ? searchQuery.isLoading : listQuery.isLoading
+  const error = searchTerm ? searchQuery.error : listQuery.error
+  const items: RCAReport[] = (searchTerm ? searchQuery.data : listQuery.data) ?? []
 
   useEffect(() => {
     if (error) {
-      showToast('error', `Search failed: ${error.message}`)
+      showToast('error', `Failed to load reports: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }, [error, showToast])
 
@@ -64,20 +73,15 @@ export function History() {
 
       {/* Results */}
       <div className="flex-1 overflow-auto px-6 py-3">
-        {!searchTerm ? (
-          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <Search className="h-8 w-8 mb-2 opacity-50" />
-            <p>Enter a search term to find RCA reports</p>
-          </div>
-        ) : isLoading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center gap-2 h-64 text-muted-foreground">
             <Spinner size="md" />
-            <span>Searching...</span>
+            <span>Loading reports...</span>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
             <Search className="h-8 w-8 text-red-400 opacity-60" />
-            <p className="text-sm">Search failed</p>
+            <p className="text-sm">Failed to load reports</p>
             <button
               onClick={() => setSearchTerm(query)}
               className="text-xs text-ring hover:underline"
@@ -88,9 +92,13 @@ export function History() {
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <FolderOpen className="h-10 w-10 mb-3 opacity-40" />
-            <p className="text-sm font-medium">No reports found</p>
+            <p className="text-sm font-medium">
+              {searchTerm ? `No reports matching "${searchTerm}"` : 'No reports yet'}
+            </p>
             <p className="text-xs mt-1 opacity-60">
-              No reports matching &quot;{searchTerm}&quot;
+              {searchTerm
+                ? 'Try a different search term'
+                : 'Reports will appear here after incidents are analyzed'}
             </p>
           </div>
         ) : (

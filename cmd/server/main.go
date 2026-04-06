@@ -185,13 +185,18 @@ func run(configPath string) error {
 		slog.Info("postmortem feature enabled")
 	}
 
+	var similarFinder analysis.SimilarFinder
+	if similarSvc != nil {
+		similarFinder = similarSvc
+	}
+
 	rcaSvc := analysis.NewRCAService(analysis.RCAServiceConfig{
 		LLMClient:      llmClient,
 		IncidentRepo:   incidentRepo,
 		ReportRepo:     reportRepo,
 		EvidenceRepo:   evidenceRepo,
 		Orchestrator:   orchestrator,
-		SimilarFinder:  similarSvc,
+		SimilarFinder:  similarFinder,
 		ChangeFinder:   changeSvc,
 		TopologyFinder: topoSvc,
 		Logger:         slog.Default(),
