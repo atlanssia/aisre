@@ -14,6 +14,7 @@ func mapLogHit(hit map[string]any, score float64) contract.ToolResult {
 	}
 	return contract.ToolResult{
 		Name:    "critical_log_cluster",
+		Type:    "log",
 		Summary: summary,
 		Score:   score,
 		Payload: hit,
@@ -28,6 +29,7 @@ func mapSpan(span map[string]any, score float64) contract.ToolResult {
 	summary := serviceName + " " + operation + " " + duration + "ms"
 	return contract.ToolResult{
 		Name:    "slowest_span",
+		Type:    "trace",
 		Summary: summary,
 		Score:   score,
 		Payload: span,

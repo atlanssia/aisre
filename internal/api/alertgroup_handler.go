@@ -62,7 +62,7 @@ func (h *handler) listAlertGroups(w http.ResponseWriter, r *http.Request) {
 
 	groups, err := h.alertGroupSvc.List(r.Context(), filter)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error(), "LIST_ERROR")
+		writeError(w, http.StatusInternalServerError, err.Error(), contract.ErrCodeListError)
 		return
 	}
 	if groups == nil {

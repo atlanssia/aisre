@@ -82,9 +82,10 @@ func NewRouterFullWithAlertGroup(svc IncidentService, analysisSvc AnalysisServic
 func NewRouterFullWithPostmortem(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, topoSvc TopologyService, promptStudioSvc PromptStudioService, alertGroupSvc AlertGroupService, postmortemSvc PostmortemService, staticFS fs.FS) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(chimw.Logger)
-	r.Use(chimw.Recoverer)
 	r.Use(chimw.RequestID)
+	r.Use(chimw.Recoverer)
+	r.Use(slogRequestLogger(nil))
+	r.Use(corsMiddleware())
 
 	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc, topoSvc: topoSvc, promptStudioSvc: promptStudioSvc, alertGroupSvc: alertGroupSvc, postmortemSvc: postmortemSvc}
 
@@ -101,6 +102,7 @@ func NewRouterFullWithPostmortem(svc IncidentService, analysisSvc AnalysisServic
 			r.Post("/incidents/{id}/analyze", h.analyzeIncident)
 			r.Post("/alerts/webhook", h.handleWebhook)
 			r.Get("/reports/{id}", h.getReport)
+			r.Get("/reports", h.listReports)
 			r.Get("/reports/{id}/evidence", h.getEvidence)
 			r.Post("/reports/{id}/feedback", h.submitFeedback)
 			r.Get("/reports/{id}/feedback", h.listFeedback)

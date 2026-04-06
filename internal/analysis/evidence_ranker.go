@@ -63,9 +63,13 @@ func (er *EvidenceRanker) AssignIDs(results []contract.ToolResult) []RankedEvide
 
 	evidence := make([]RankedEvidence, len(results))
 	for i, tr := range results {
+		evType := tr.Type
+		if evType == "" {
+			evType = tr.Name // fallback to tool name if type not set
+		}
 		evidence[i] = RankedEvidence{
 			ID:      fmt.Sprintf("ev_%03d", i+1),
-			Type:    tr.Name,
+			Type:    evType,
 			Score:   tr.Score,
 			Summary: tr.Summary,
 			Payload: tr.Payload,

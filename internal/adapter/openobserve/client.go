@@ -202,6 +202,7 @@ func (c *Client) QueryMetric(ctx context.Context, q MetricQuery) ([]contract.Too
 		}
 		results = append(results, contract.ToolResult{
 			Name:    "metric_anomaly",
+			Type:    "metric",
 			Summary: summary,
 			Score:   score,
 			Payload: hit,
