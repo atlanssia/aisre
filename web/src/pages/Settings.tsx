@@ -1,17 +1,44 @@
-import { useState } from 'react'
-import { Settings as SettingsIcon, ExternalLink, RefreshCw, Server, Brain, Info } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Settings as SettingsIcon, ExternalLink, RefreshCw, Server, Brain, Info, Save } from 'lucide-react'
+import { config, type AppConfig, type UpdateOOConfig } from '@/api/client'
 
 type ConnectionStatus = 'idle' | 'testing' | 'connected' | 'error'
 
 export function Settings() {
+  const [appConfig, setAppConfig] = useState<AppConfig | null>(null)
   const [ooStatus, setOoStatus] = useState<ConnectionStatus>('idle')
   const [ooError, setOoError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
+
+  // Editable O2 form state
+  const [ooForm, setOoForm] = useState<UpdateOOConfig>({
+    base_url: '',
+    org_id: '',
+    stream: '',
+    username: '',
+    password: '',
+  })
+
+  useEffect(() => {
+    config.get().then((cfg) => {
+      setAppConfig(cfg)
+      setOoForm({
+        base_url: cfg.openobserve.base_url,
+        org_id: cfg.openobserve.org_id,
+        stream: cfg.openobserve.stream,
+        username: cfg.openobserve.username,
+        password: '',
+      })
+    }).catch(() => {})
+  }, [])
 
   async function testOoConnection() {
     setOoStatus('testing')
     setOoError(null)
     try {
-      const res = await fetch('http://localhost:5080/health', {
+      const baseUrl = ooForm.base_url || 'http://localhost:5080'
+      const res = await fetch(`${baseUrl}/health`, {
         signal: AbortSignal.timeout(5000),
       })
       if (res.ok) {
@@ -25,6 +52,24 @@ export function Settings() {
       setOoError(err instanceof Error ? err.message : 'Connection failed')
     }
   }
+
+  async function saveOOConfig() {
+    setSaving(true)
+    setSaveMsg(null)
+    try {
+      await config.updateOO(ooForm)
+      setSaveMsg('Saved — O2 adapter reconfigured')
+      // Refresh config
+      const cfg = await config.get()
+      setAppConfig(cfg)
+    } catch (err) {
+      setSaveMsg(`Error: ${err instanceof Error ? err.message : 'Save failed'}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const llm = appConfig?.llm
 
   return (
     <div className="flex flex-col h-full">
@@ -44,17 +89,54 @@ export function Settings() {
           <div className="flex items-center gap-2 mb-4">
             <Server className="h-4 w-4 text-ring" />
             <h2 className="text-sm font-medium text-foreground">
-              Observability Backend
+              OpenObserve Backend
             </h2>
           </div>
 
           <div className="space-y-3">
-            <ConfigRow label="Provider" value="OpenObserve" />
-            <ConfigRow label="Base URL" value="http://localhost:5080" />
-            <ConfigRow label="Organization" value="default" />
+            <FormField
+              label="Base URL"
+              value={ooForm.base_url}
+              onChange={(v) => setOoForm({ ...ooForm, base_url: v })}
+              placeholder="http://localhost:5080"
+            />
+            <FormField
+              label="Organization"
+              value={ooForm.org_id}
+              onChange={(v) => setOoForm({ ...ooForm, org_id: v })}
+              placeholder="default"
+            />
+            <FormField
+              label="Stream"
+              value={ooForm.stream}
+              onChange={(v) => setOoForm({ ...ooForm, stream: v })}
+              placeholder="default"
+            />
+            <FormField
+              label="Username"
+              value={ooForm.username}
+              onChange={(v) => setOoForm({ ...ooForm, username: v })}
+              placeholder="root@example.com"
+            />
+            <FormField
+              label="Password"
+              value={ooForm.password}
+              onChange={(v) => setOoForm({ ...ooForm, password: v })}
+              type="password"
+              placeholder="••••••••"
+            />
           </div>
 
           <div className="mt-4 pt-4 border-t border-border flex items-center gap-4">
+            <button
+              onClick={saveOOConfig}
+              disabled={saving}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? 'Saving...' : 'Save & Apply'}
+            </button>
+
             <button
               onClick={testOoConnection}
               disabled={ooStatus === 'testing'}
@@ -69,6 +151,10 @@ export function Settings() {
               connectedLabel="Connected"
               errorLabel={ooError ?? 'Disconnected'}
             />
+
+            {saveMsg && (
+              <span className="text-xs text-muted-foreground">{saveMsg}</span>
+            )}
           </div>
         </section>
 
@@ -82,11 +168,11 @@ export function Settings() {
           </div>
 
           <div className="space-y-3">
-            <ConfigRow label="Provider" value="OpenAI Compatible" />
-            <ConfigRow label="Base URL" value="https://api.openai.com/v1" />
-            <ConfigRow label="RCA Model" value="gpt-4o (max 4096 tokens)" />
-            <ConfigRow label="Summarize Model" value="gpt-4o-mini (max 1024 tokens)" />
-            <ConfigRow label="Embedding Model" value="text-embedding-3-small" />
+            <ConfigRow label="Provider" value={llm?.provider ?? 'OpenAI Compatible'} />
+            <ConfigRow label="Base URL" value={llm?.base_url ?? '—'} />
+            <ConfigRow label="RCA Model" value={llm?.rca_model ?? '—'} />
+            <ConfigRow label="Summary Model" value={llm?.summary_model ?? '—'} />
+            <ConfigRow label="Embedding Model" value={llm?.embed_model ?? '—'} />
           </div>
 
           <p className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
@@ -126,6 +212,33 @@ export function Settings() {
           </div>
         </section>
       </div>
+    </div>
+  )
+}
+
+function FormField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  type?: string
+}) {
+  return (
+    <div className="flex items-center gap-4">
+      <span className="text-sm text-muted-foreground w-24 shrink-0">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="flex-1 px-3 py-1.5 text-sm font-mono bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+      />
     </div>
   )
 }

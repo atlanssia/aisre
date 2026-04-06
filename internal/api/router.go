@@ -80,6 +80,11 @@ func NewRouterFullWithAlertGroup(svc IncidentService, analysisSvc AnalysisServic
 
 // NewRouterFullWithPostmortem creates a router with all endpoints including postmortem.
 func NewRouterFullWithPostmortem(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, topoSvc TopologyService, promptStudioSvc PromptStudioService, alertGroupSvc AlertGroupService, postmortemSvc PostmortemService, staticFS fs.FS) http.Handler {
+	return NewRouterFullWithConfig(svc, analysisSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, promptStudioSvc, alertGroupSvc, postmortemSvc, nil, staticFS)
+}
+
+// NewRouterFullWithConfig creates a router with all endpoints including config management.
+func NewRouterFullWithConfig(svc IncidentService, analysisSvc AnalysisService, feedbackRepo store.FeedbackRepo, reportRepo store.ReportRepo, similarSvc SimilarService, changeSvc ChangeService, topoSvc TopologyService, promptStudioSvc PromptStudioService, alertGroupSvc AlertGroupService, postmortemSvc PostmortemService, configSvc ConfigService, staticFS fs.FS) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.RequestID)
@@ -87,7 +92,7 @@ func NewRouterFullWithPostmortem(svc IncidentService, analysisSvc AnalysisServic
 	r.Use(slogRequestLogger(nil))
 	r.Use(corsMiddleware())
 
-	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc, topoSvc: topoSvc, promptStudioSvc: promptStudioSvc, alertGroupSvc: alertGroupSvc, postmortemSvc: postmortemSvc}
+	h := &handler{svc: svc, analysisSvc: analysisSvc, feedbackRepo: feedbackRepo, reportRepo: reportRepo, similarSvc: similarSvc, changeSvc: changeSvc, topoSvc: topoSvc, promptStudioSvc: promptStudioSvc, alertGroupSvc: alertGroupSvc, postmortemSvc: postmortemSvc, configSvc: configSvc}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// SSE route — no contentTypeJSON middleware
@@ -108,7 +113,11 @@ func NewRouterFullWithPostmortem(svc IncidentService, analysisSvc AnalysisServic
 			r.Get("/reports/{id}/feedback", h.listFeedback)
 			r.Get("/reports/search", h.searchReports)
 
-			// Similar incident routes (feature-flagged)
+				// Config routes
+				r.Get("/config", h.getConfig)
+				r.Put("/config/openobserve", h.updateOOConfig)
+
+				// Similar incident routes (feature-flagged)
 			if h.similarSvc != nil {
 				r.Get("/incidents/{id}/similar", h.getSimilar)
 				r.Post("/incidents/{id}/embed", h.computeEmbedding)
@@ -182,6 +191,7 @@ type handler struct {
 	promptStudioSvc PromptStudioService
 	alertGroupSvc   AlertGroupService
 	postmortemSvc   PostmortemService
+	configSvc       ConfigService
 }
 
 func contentTypeJSON(next http.Handler) http.Handler {

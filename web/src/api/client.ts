@@ -102,3 +102,38 @@ export const feedback = {
   list: (reportId: number) =>
     request<FeedbackResponse[]>(`/reports/${reportId}/feedback`),
 }
+
+// Config
+export interface AppConfig {
+  openobserve: {
+    base_url: string
+    org_id: string
+    stream: string
+    username: string
+  }
+  llm: {
+    provider: string
+    base_url: string
+    rca_model: string
+    summary_model: string
+    embed_model: string
+  }
+}
+
+export interface UpdateOOConfig {
+  base_url: string
+  org_id: string
+  stream: string
+  username: string
+  password: string
+}
+
+export const config = {
+  get: () => request<AppConfig>('/config'),
+
+  updateOO: (data: UpdateOOConfig) =>
+    request<void>('/config/openobserve', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+}

@@ -8,12 +8,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/atlanssia/aisre/internal/adapter/openobserve"
 	"github.com/atlanssia/aisre/internal/alertgroup"
 	"github.com/atlanssia/aisre/internal/analysis"
 	"github.com/atlanssia/aisre/internal/api"
 	"github.com/atlanssia/aisre/internal/change"
+	"github.com/atlanssia/aisre/internal/contract"
 	"github.com/atlanssia/aisre/internal/incident"
 	"github.com/atlanssia/aisre/internal/postmortem"
 	"github.com/atlanssia/aisre/internal/promptstudio"
@@ -197,7 +199,36 @@ func run(configPath string) error {
 
 	// HTTP Server
 	staticFS := getStaticFS()
-	router := api.NewRouterFullWithPostmortem(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, promptStudioSvc, alertGroupSvc, postmortemSvc, staticFS)
+
+	stream := viper.GetString("adapters.openobserve.stream")
+	if stream == "" {
+		stream = "default"
+	}
+
+	// Config service — allows runtime O2 reconfiguration
+	rebuilder := &ooRebuilder{
+		orch:      orchestrator,
+		mu:        sync.Mutex{},
+		curStream: stream,
+	}
+	ooInitCfg := contract.OOConfig{
+		BaseURL:  ooCfg.BaseURL,
+		OrgID:    ooCfg.OrgID,
+		Stream:   stream,
+		Username: ooCfg.Username,
+		Password: ooCfg.Password,
+	}
+	llmCfgView := contract.LLMConfig{
+		Provider:     "OpenAI Compatible",
+		BaseURL:      llmCfg.BaseURL,
+		RCAModel:     viper.GetString("llm.models.rca.model"),
+		SummaryModel: viper.GetString("llm.models.summarize.model"),
+		EmbedModel:   viper.GetString("embedding.model"),
+	}
+	configSvc := api.NewConfigService(ooInitCfg, llmCfgView, rebuilder)
+
+	router := api.NewRouterFullWithConfig(incidentSvc, rcaSvc, feedbackRepo, reportRepo, similarSvc, changeSvc, topoSvc, promptStudioSvc, alertGroupSvc, postmortemSvc, configSvc, staticFS)
+
 	addr := fmt.Sprintf("%s:%d",
 		viper.GetString("server.host"),
 		viper.GetInt("server.port"),
@@ -208,6 +239,51 @@ func run(configPath string) error {
 
 	slog.Info("server starting", "addr", addr)
 	return http.ListenAndServe(addr, router)
+}
+
+// ooRebuilder implements api.OOClientRebuilder to recreate O2 client at runtime.
+type ooRebuilder struct {
+	orch      *tool.Orchestrator
+	mu        sync.Mutex
+	curStream string
+}
+
+func (r *ooRebuilder) Rebuild(cfg contract.UpdateOOConfig) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	ooCfg := openobserve.Config{
+		BaseURL:  cfg.BaseURL,
+		OrgID:    cfg.OrgID,
+		Username: cfg.Username,
+		Password: cfg.Password,
+	}
+	client, err := openobserve.NewClient(ooCfg, slog.Default())
+	if err != nil {
+		return fmt.Errorf("failed to create O2 client: %w", err)
+	}
+
+	stream := cfg.Stream
+	if stream == "" {
+		stream = "default"
+	}
+	r.curStream = stream
+
+	tools := []tool.Tool{
+		tool.NewLogsTool(tool.LogsToolConfig{Provider: client, Stream: stream}),
+		tool.NewTraceTool(tool.TraceToolConfig{Provider: client, Stream: stream}),
+		tool.NewMetricsTool(tool.MetricsToolConfig{Provider: client, Stream: stream}),
+	}
+
+	if r.orch != nil {
+		r.orch.SetTools(tools)
+	}
+	slog.Info("OO adapter reconfigured", "base_url", cfg.BaseURL, "org", cfg.OrgID, "stream", stream)
+	return nil
+}
+
+func (r *ooRebuilder) GetConfig() contract.OOConfig {
+	return contract.OOConfig{}
 }
 
 // convertMessages adapts postmortem.Message slices to analysis.Message for the LLM client.

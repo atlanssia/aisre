@@ -15,6 +15,11 @@ type Orchestrator struct {
 	logger  *slog.Logger
 }
 
+// SetTools replaces the current tool set (used for runtime config changes).
+func (o *Orchestrator) SetTools(tools []Tool) {
+	o.tools = tools
+}
+
 // NewOrchestrator creates a new tool orchestrator.
 func NewOrchestrator(tools []Tool, logger *slog.Logger) *Orchestrator {
 	if logger == nil {
